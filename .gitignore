@@ -1,0 +1,5 @@
+node_modules/
+.direnv/
+result
+# third-party source documents, kept locally only
+AI_Native_SDLC_Playbook_*

@@ -1,12 +1,25 @@
 # PRD: Factory8 — AI-Native Software Factory
 
-**Status:** DRAFT v0.5 · **Basis:** AI-Native SDLC Playbook (`SDLC_Playbook_Essentials.md`) + architecture decisions and PRD review of 2026-10-20 + hands-on tests of Optio and SuperPlane (2026-10-21/22) · **Owner:** project author
+**Status:** DRAFT v0.6 · **Basis:** AI-Native SDLC Playbook (`SDLC_Playbook_Essentials.md`) + architecture decisions and PRD review of 2026-10-20 + hands-on tests of Optio and SuperPlane (2026-10-21/22) + adapter contract review (2026-10-22) · **Owner:** project author
 **Stage:** personal prototype on the author's own project; target: a single-tenant offering installed per client.
 Summary pages: `site/prd.html`, `site/architecture.html`.
 
 > Items not stated by the playbook or by the product owner are marked **[ASSUMPTION]** or listed in §13; open questions are in §14. Requirement IDs are stable; retired so far: ART-5 (v0.3).
 
 ## 0. Changes
+
+### v0.6 (from v0.5)
+
+| Change | Effect |
+|---|---|
+| **Session logs kept** (new AGT-11) | Every agent session's log files (vendor session `*.jsonl` plus the adapter's event log) are collected into object storage per run and step, so a session can be restored — after its sandbox died, in a new sandbox or in an engineer's terminal — and analysed later |
+| **Adapter runs in the sandbox** (AGT-1, SBX-3) | The adapter is a daemon inside the sandbox; a worker starts each step through it and polls its event stream, which feeds the heartbeats (ORC-13). A worker restart drops a poll, not the agent. The sandbox accepts inbound traffic only from workers to the adapter port. Vendor hooks may be used inside the adapter, never as a path to the control plane: anything a hook can reach, the agent can too |
+| **Questions through the CLI's own tool** (SBX-11, A15) | The agent asks with its CLI's native question tool, which an adapter hook intercepts (Claude Code: a hook on `AskUserQuestion`); an `f8-ask` command is the fallback for CLIs without such a hook |
+| **Nix first** (PRJ-1, PRJ-6–8, SBX-16, A14, OQ-22; Phase 0/4) | Factory8 is built for the author first, and all their projects are Nix-based. The first environment provider reads the repo's Nix dev shell (`flake.nix` or `shell.nix`). Dev Containers move to Phase 4, before client installs; Flox or a plain Dockerfile can still be added later |
+| **Dogfooding; phase order** — OQ-3 resolved (§8, G11, A5) | Factory8 is developed with Factory8: once the thinnest loop works (M1), Factory8's own changes go through Factory8 runs, and each later piece is used on the next change. `librepod/marketplace` is the pilot alongside it. Phase 0 is delivered as four increments, each usable as soon as it lands: M1 issue → sandboxed agent → draft PR; M2 live progress and session logs; M3 questions with suspend/resume; M4 recovery from stalls and sandbox death |
+| **`project.yaml` postponed** (PRJ-1, OQ-16) | Phase 0 runs on what the repo already has — Nix dev shell, `AGENTS.md`, the CLI's native skills and MCP config — plus installation defaults (agent profile, egress allowlist). The schema is written when a feature first reads it (Phase 1: commands, checks, route rules, egress and secret requests) |
+| **Pilot repo named** (A11) | `librepod/marketplace` on GitHub: Nix dev shell, `AGENTS.md`, project skills |
+| Fixes | AGT-9, NFR-9: session files are opaque to workflows, but stored raw for restore and analysis (AGT-11) |
 
 ### v0.5 (from v0.4)
 
@@ -70,6 +83,7 @@ Factory8 runs the full SDLC (Plan → Design → Build → Test → Deploy → M
 | G8 | **Durable, resumable runs:** failures retry or resume without re-prompting; waiting costs no compute | % runs completing without manual restart; pod-hours held while waiting = 0 |
 | G9 | **Terminal and forge first:** engineers drive Factory8 from the forge and their terminal; no new UI to learn | human actions needing anything but forge or CLI = 0; time to onboard a project |
 | G10 | **Project-ready agents:** an agent starts on a project with its dependencies, tools and context in place | sandbox ready time; share of step time spent installing; steps failed for a missing tool → 0 |
+| G11 | **Dogfooding:** Factory8 is developed with Factory8 from M1 (§8) | share of Factory8's merged PRs that came from a Factory8 run |
 
 ## 4. Non-goals
 
@@ -121,7 +135,7 @@ Primary users are engineers who already run agents in the terminal (Claude Code,
 
 ## 7. Architecture (logical)
 
-Control plane (trusted, one per installation): Temporal (+Postgres) · intake adapters (pollers) + IntakeWorkflow · SDLC workflows + workers · git gateway → forge (commands polled → signals) · `f8` CLI over the control-plane API · LLM gateway (any configured provider) · deploy gateway (MCP tools) · object storage (evidence) · sandbox controller (agent-sandbox) · project agent builder (image + template, checks) + registry. Execution plane (untrusted): Kata microVM sandboxes started from the project agent's image, running an agent adapter + any CLI, with a PVC for workspace and session · egress proxy with allowlist → read-only package mirrors · secret-free CI runners for agent branches. Diagram: `site/architecture.html`.
+Control plane (trusted, one per installation): Temporal (+Postgres) · intake adapters (pollers) + IntakeWorkflow · SDLC workflows + workers · git gateway → forge (commands polled → signals) · `f8` CLI over the control-plane API · LLM gateway (any configured provider) · deploy gateway (MCP tools) · object storage (evidence, agent session logs) · sandbox controller (agent-sandbox) · project agent builder (image + template, checks) + registry. Execution plane (untrusted): Kata microVM sandboxes started from the project agent's image, running the agent adapter daemon (polled by workers) + any CLI, with a PVC for workspace and session · egress proxy with allowlist → read-only package mirrors · secret-free CI runners for agent branches. Diagram: `site/architecture.html`.
 
 Run shape:
 
@@ -138,7 +152,7 @@ GitHub issue (owner) ─poll─▶ IntakeWorkflow: screen → classify → repro
 Mid-step wait:
 
 ```
-agent needs input ─▶ adapter exits needs_input (question + handoff note)
+agent asks (its CLI's question tool, caught by an adapter hook) ─▶ adapter reports needs_input (question + handoff note)
   workflow: suspend Sandbox (pod terminated; Sandbox + PVC kept) ─▶ post question on issue/PR ─▶ wait for signal
 human: /answer … on the issue/PR, or `f8 answer` ─▶ signal ─▶ resume Sandbox (PVC reattached) ─▶ template setup script ─▶ fresh tokens
   adapter: vendor session resume with the answer (e.g. `claude -p --resume <id>`, `codex exec resume <id>`)
@@ -151,11 +165,11 @@ Stage gates do not suspend: the sandbox is deleted and the next stage starts fre
 
 | Phase | Name | Content | Exit criterion |
 |---|---|---|---|
-| 0 | Platform skeleton | Temporal + Postgres; object storage; project agent for the pilot repo (PRJ-1–3, devcontainer provider PRJ-8, SBX-16) + egress proxy; LLM gateway with a custom provider (AGT-10) + git gateway; adapter contract + Claude Code; a 3-step skeleton workflow; step heartbeats (ORC-13); suspend/resume on a mid-step question; `f8` CLI: runs, progress, answer (PLT-5) | On the author's project a workflow runs steps in sandboxes started from the project agent (dependencies, tools and context in place) with model traffic through a custom provider; it commits a result to the run branch, survives a forced failure and a stalled step, and resumes an agent after an answer given from the CLI or the issue, with no pod held while waiting |
+| 0 | Platform skeleton, dogfooded | Delivered as increments, each used on Factory8's own repo as soon as it lands. **M1** `f8 run <issue>` → a one-step workflow → a sandbox from the repo's Nix dev shell (PRJ-1–3, PRJ-8, SBX-16) → Claude Code through the adapter (AGT-1), the LLM gateway with a custom provider (AGT-10) and the git gateway → a draft PR. **M2** step heartbeats and live progress (ORC-13), session logs (AGT-11), `f8 runs`. **M3** suspend/resume on a mid-step question, `/answer` and `f8 answer`. **M4** retry after a forced failure, a stall or a sandbox death. Underneath: Temporal + Postgres, object storage, egress proxy | On Factory8's own repo and the pilot (`librepod/marketplace`) a workflow runs steps in sandboxes started from the project agent (dependencies, tools and context in place) with model traffic through a custom provider; it commits a result to the run branch, survives a forced failure and a stalled step, and resumes an agent after an answer given from the CLI or the issue, with no pod held while waiting; Factory8's own changes are made through Factory8 runs |
 | 1 | Guided loop | Intake: envelope, IntakeWorkflow, GitHub issue poller (owner-only), triage, draft intent + `/accept`; design (spec.md in draft PR); plan; PR review step; gates via forge signals; route recorded on every run (all gates still on); policy bundles; deterministic platform controls; project agent builds and checks (SBX-17, PRJ-4/5); full `f8` CLI; Codex as 2nd vendor (AGT-2) | An owner-filed GitHub issue → triaged, accepted intent → merged PR, with humans at every gate; the same workflow passes with 2 vendors |
 | 2 | Routine route + delivery | Routine route enforced (route rules, escalation, pattern catalog); eval suite; adapter conformance suite + pi as 3rd vendor (AGT-2/7); parallel runs; per-project warm pools and caches (SBX-18); project agent local parity and `f8 project init` (PRJ-6/7); deploy gateway + autonomy tiers; rehearsed rollback | A routine change reaches release with humans only at intent and release; rollback proven |
 | 3 | Closed loop | Detection + bands; headless diagnose/propose with confidence gates; incident→eval; chat bridge and chat intake (ART-8) | Breach yields a triaged intent without a human starting it |
-| 4 | Client-ready | Packaged single-tenant install; AuthN/RBAC; read-only package egress; secret-free agent CI; per-installation LLM provider allowlist; outside-reporter intake controls (INT-10); retention/compliance (OQ-11) | A second installation stands up from git with no shared state; SBX-14 and BLD-8 verified by test |
+| 4 | Client-ready | Packaged single-tenant install; Dev Containers environment provider (PRJ-8); AuthN/RBAC; read-only package egress; secret-free agent CI; per-installation LLM provider allowlist; outside-reporter intake controls (INT-10); retention/compliance (OQ-11) | A second installation stands up from git with no shared state; SBX-14 and BLD-8 verified by test |
 
 ## 9. Functional requirements
 
@@ -198,7 +212,7 @@ Priority: **M** must · **S** should · **C** could. `[n]` = phase. ★ = new or
 |---|---|---|
 | SBX-1 ★ | Each agent session runs in its own agent-sandbox `Sandbox` (Kata microVM `RuntimeClass`, from a `SandboxTemplate`); deleted when its step ends, suspended while it waits on a human (SBX-11). [0] | M |
 | SBX-2 | Root/admin inside the VM is permitted (package installs, docker compose); no privileged host access. [0] | M |
-| SBX-3 ★ | Default-deny NetworkPolicy: sandbox may reach only the gateways, the egress proxy and presigned object-storage URLs; no access to Temporal, the Kubernetes API, or other sandboxes. [0] | M |
+| SBX-3 ★ | Default-deny NetworkPolicy: sandbox may reach only the gateways, the egress proxy and presigned object-storage URLs; no access to Temporal, the Kubernetes API, or other sandboxes. Inbound traffic only from Factory8 workers to the adapter's port (AGT-1). [0] | M |
 | SBX-4 | Egress proxy allowlist for package registries, mirrors and image pulls; all egress logged. [0] | M |
 | SBX-5 ★ | No standing credentials: tokens are minted per step, revoked on delete or suspend, re-minted on resume; no cloud/cluster creds. [0] | M |
 | SBX-6 ★ | Workspace per run: repo checkout on the run branch at a fixed path on the sandbox's PVC; durable results persist via the branch and object storage, not VM state. [0] | M |
@@ -206,19 +220,19 @@ Priority: **M** must · **S** should · **C** could. `[n]` = phase. ★ = new or
 | SBX-8 | Warm pools (`SandboxWarmPool`) for common templates to cut start latency. [2] | S |
 | SBX-9 | Sandbox base images are curated, versioned and scanned; image policy defined. Project images (SBX-16) build on them. [1] | S |
 | SBX-10 | Step evidence captured: command/output transcript, test output, screenshots, resource use (ART-12). [1] | M |
-| SBX-11 ★ | **Suspend on wait:** when the agent needs human input mid-step, the adapter exits `needs_input` (question + handoff note); the workflow suspends the Sandbox (pod terminated, Sandbox object and PVC kept), posts the question to the issue/PR and waits for a signal. Stage gates delete the sandbox instead. [0] | M |
+| SBX-11 ★ | **Suspend on wait:** when the agent needs human input mid-step, it asks with its CLI's own question tool, an adapter hook intercepts it (fallback: an `f8-ask` command, A15), and the adapter reports `needs_input` (question + handoff note); the workflow suspends the Sandbox (pod terminated, Sandbox object and PVC kept), posts the question to the issue/PR and waits for a signal. Stage gates delete the sandbox instead. [0] | M |
 | SBX-12 ★ | **What persists:** only PVC paths — the workspace (incl. uncommitted changes), the vendor session directory (e.g. `~/.claude/projects`, `~/.codex/sessions`) and the handoff note. Never credentials or gateway tokens. Root-filesystem changes, installed packages and running services are lost. [0] | M |
 | SBX-13 ★ | **Resume:** on the answer signal the Sandbox resumes with the PVC reattached at the same paths, the template's setup script re-runs, fresh tokens are minted, and the adapter resumes the vendor session with the answer; if the vendor can't resume or the session is missing, it starts a fresh session from handoff note + answer + branch. [0] | M |
 | SBX-14 ★ | Package egress is read-only: sandboxes reach registries only through pull-through mirrors, or a proxy that permits only GET/HEAD to registry hosts; publish/upload endpoints and arbitrary git hosts are blocked. [4] | M |
 | SBX-15 ★ | Suspended sandboxes (PVC included) are deleted when the run ends, is cancelled, or exceeds a max wait; the PVC storage class is chosen per installation and must be networked on multi-node installs (pilot: NFS provisioner, OQ-21). [0] | M |
-| SBX-16 ★ | **Project environment** (the environment part of the project agent, PRJ-1): each project declares its agent environment in its repo — toolchain and versions, system packages, dependency install, images for docker compose services, setup command (declared in `devcontainer.json` by default; other formats through environment providers, PRJ-8). Factory8 builds it into a versioned project image and a per-project `SandboxTemplate`; every agent session for that project — any user, any run — starts from it, so a step installs only what its own branch changed. The declaration controls only what is installed; runtime class, network and egress policy, resource ceilings and the adapter stay in admin-owned config (DEP-6). [0] | M |
+| SBX-16 ★ | **Project environment** (the environment part of the project agent, PRJ-1): each project declares its agent environment in its repo — toolchain and versions, system packages, dependency install, images for docker compose services, setup command (declared in the repo's Nix dev shell first; other formats through environment providers, PRJ-8). Factory8 builds it into a versioned project image and a per-project `SandboxTemplate`; every agent session for that project — any user, any run — starts from it, so a step installs only what its own branch changed. The declaration controls only what is installed; runtime class, network and egress policy, resource ceilings and the adapter stay in admin-owned config (DEP-6). [0] | M |
 | SBX-17 ★ | Project images are built by a Factory8 build workflow, never in an agent sandbox: from the default branch only, with egress through the mirrors, and private-registry credentials passed as build secrets that never reach an image layer. Images are tagged by a hash of the declaration and lockfiles, scanned (SBX-9) and pushed to the installation's registry. A change to those files on the default branch, or a scheduled patch rebuild, triggers a build; a failed build keeps the last good image and notifies the project owner. Run branches never build images: an environment change on a run branch is installed at step start for that run only and counts as a new dependency (ORC-12). [1] | M |
 | SBX-18 ★ | Fast start, little traffic: warm pools per project template (SBX-8); a git mirror per repo so checkout fetches only the delta; compose service images and dependency caches baked into the image or served from in-cluster caches; targets in OQ-13. [2] | S |
 
 ### 9.4 AGT — Agent adapter (vendor-agnostic)
 | ID | Requirement | P |
 |---|---|---|
-| AGT-1 ★ | A documented adapter contract: input = workspace + task (refs to intent/spec/plan) + context bundle + gateway endpoints/tokens [+ human answer on resume]; output = result + evidence refs + exit status `done` / `failed` / `needs_input` (question + handoff note). [0] | M |
+| AGT-1 ★ | A documented adapter contract: input = workspace + task (refs to intent/spec/plan) + context bundle + gateway endpoints/tokens [+ human answer on resume]; output = result + evidence refs + exit status `done` / `failed` / `needs_input` (question + handoff note). The adapter runs as a daemon inside the sandbox; a worker activity starts the step through it and polls its event stream, which feeds the step's heartbeats (ORC-13), so a worker restart never stops the agent. Vendor hooks may be used inside the adapter, never as a path to the control plane. [0] | M |
 | AGT-2 ★ | Vendor order: Claude Code is the first adapter [0]; Codex is implemented behind the same contract before Phase 1 exit [1]; pi qualifies third by passing the conformance suite (AGT-7) [2]. [1] | M |
 | AGT-3 | Workflow steps select an **agent profile** (vendor, model, effort, tool permissions) by name; profiles are config, not code; a project agent sets its own defaults within the installation's allowlist (PRJ-2). [0] | M |
 | AGT-4 ★ | Context is vendor-neutral: the repo's `AGENTS.md` (PRJ-1) plus installation-level conventions. Adapters translate for CLIs that don't read `AGENTS.md` natively (e.g. a generated `CLAUDE.md` that imports it). [1] | M |
@@ -226,8 +240,9 @@ Priority: **M** must · **S** should · **C** could. `[n]` = phase. ★ = new or
 | AGT-6 ★ | All model traffic goes through the LLM gateway (keys, budgets, per-run attribution, logging, per-installation provider/model allowlist). [0] | M |
 | AGT-7 | A conformance suite runs any adapter against standard tasks; new vendors qualify by passing it. [2] | S |
 | AGT-8 | Reviewer/verifier steps can use a different vendor/profile than the author. [2] | S |
-| AGT-9 ★ | Session resume is an optional, declared adapter capability; session files are opaque to everything but their adapter; the adapter may prefer the handoff path when a session is too large to re-send cheaply (NFR-7). [0] | S |
+| AGT-9 ★ | Session resume is an optional, declared adapter capability; session files are opaque to workflows and artifact formats (stored raw, AGT-11); the adapter may prefer the handoff path when a session is too large to re-send cheaply (NFR-7). [0] | S |
 | AGT-10 ★ | **Custom LLM providers:** the adapter points each vendor CLI at the LLM gateway through the CLI's own settings (e.g. `ANTHROPIC_BASE_URL` for Claude Code, a custom provider entry for Codex) and passes a per-run gateway token as its key. The gateway routes to any provider the installation configures — vendor APIs, cloud-hosted models, self-hosted or API-compatible endpoints — and maps model names, so a profile can name any allowed model. [0] | M |
+| AGT-11 ★ | **Session logs kept:** every agent session's log files — the vendor session files (e.g. `~/.claude/projects/**/*.jsonl`, `~/.codex/sessions/**/*.jsonl`) and the adapter's event log — are collected into object storage under their run and step, at every step exit and before any PVC is deleted (SBX-15). From that store a session can be restored — after its sandbox died, into a new sandbox, or in an engineer's terminal (PRJ-6) — and logs can be analysed later. Retention per ART-10; nothing leaves the installation (TEN-2). [0] | M |
 
 ### 9.5 INT / PLN — Intake and plan
 | ID | Requirement | P |
@@ -332,14 +347,14 @@ Priority: **M** must · **S** should · **C** could. `[n]` = phase. ★ = new or
 ### 9.13 PRJ — Project agent ★
 | ID | Requirement | P |
 |---|---|---|
-| PRJ-1 ★ | **Definition, from the repo's own files:** everything an agent needs to work on a repo comes from its default branch. The environment comes from `.devcontainer/devcontainer.json` through an environment provider (PRJ-8, SBX-16); context from `AGENTS.md` plus the pattern catalog (BLD-3). A small `.factory8/project.yaml` (schema: OQ-16) adds only what those can't express: commands (setup, build, test, lint — TST-1), tools (skills/commands, MCP servers, CLIs), default agent profiles per step type, route rules (PRJ-9), and the egress and secrets its tools need. Nothing is copied, so the factory and an engineer's terminal read the same files; each adapter translates for its CLI (AGT-4). [0] | M |
+| PRJ-1 ★ | **Definition, from the repo's own files:** everything an agent needs to work on a repo comes from its default branch. The environment comes from the repo's own declaration — its Nix dev shell first, later e.g. `devcontainer.json` — through an environment provider (PRJ-8, SBX-16); context from `AGENTS.md` plus the pattern catalog (BLD-3). A small `.factory8/project.yaml` (from Phase 1; its schema is written when a feature first reads it) adds only what those can't express: commands (setup, build, test, lint — TST-1), tools (skills/commands, MCP servers, CLIs), default agent profiles per step type, route rules (PRJ-9), and the egress and secrets its tools need. Nothing is copied, so the factory and an engineer's terminal read the same files; each adapter translates for its CLI (AGT-4). [0] | M |
 | PRJ-2 ★ | Every session on a project — any user, run or step — starts from the project agent at the commit pinned when the run started, recorded in the run and the spec front-matter (DSN-3); a change merged mid-run applies from the next run. Profiles it sets must be within the installation allowlist (AGT-6, TEN-4). [0] | M |
 | PRJ-3 ★ | Tools are first-class: declared skills and commands are installed for each vendor CLI; MCP servers run inside the sandbox, or behind a gateway when they need credentials; every tool reaches the network only through the gateways and egress proxy (SBX-3/4). [0] | M |
 | PRJ-4 ★ | Security-relevant needs are requests, not settings: extra egress hosts and secrets for project tools (e.g. a private registry, a test service) are declared by name, and an installation admin approves them into admin-owned config (DEP-6). Secrets reach only the builder (SBX-17) or a gateway, never the sandbox or the repo. [1] | M |
 | PRJ-5 ★ | **Checked before use:** `f8 project check`, and the build workflow on every change, validates the definition, builds the image, runs the setup and test commands and a smoke task with each declared profile. A project whose agent fails the check takes no new runs, and its owner is told why. [1] | M |
-| PRJ-6 ★ | **Local parity:** the factory uses the same `devcontainer.json`, `AGENTS.md` and skills that an engineer's own editor and agent CLI already use, so a factory run can be reproduced or continued locally from its run branch and handoff note. [2] | S |
-| PRJ-7 ★ | Onboarding: `f8 project init` drafts what a repo is missing — a `devcontainer.json` from the detected toolchain, an `AGENTS.md` (from an existing `CLAUDE.md` if there is one), a `project.yaml` — and opens it as a PR for an engineer to review. [2] | S |
-| PRJ-8 ★ | **Environment providers (extension point):** one interface — detect, build image, setup command — turns a repo's environment declaration into a project image for the builder (SBX-17). The first provider is Dev Containers (`devcontainer.json`, incl. its Dockerfile and features). Others, e.g. Flox, a Nix flake or a plain Dockerfile, can be added without changing workflows, templates or adapters; `project.yaml` names the provider when more than one applies. [0] | M |
+| PRJ-6 ★ | **Local parity:** the factory uses the same environment declaration (e.g. the Nix dev shell), `AGENTS.md` and skills that an engineer's own shell, editor and agent CLI already use, so a factory run can be reproduced or continued locally from its run branch and handoff note. [2] | S |
+| PRJ-7 ★ | Onboarding: `f8 project init` drafts what a repo is missing — an environment declaration from the detected toolchain (a Nix dev shell; `devcontainer.json` once that provider exists), an `AGENTS.md` (from an existing `CLAUDE.md` if there is one), a `project.yaml` — and opens it as a PR for an engineer to review. [2] | S |
+| PRJ-8 ★ | **Environment providers (extension point):** one interface — detect, build image, setup command — turns a repo's environment declaration into a project image for the builder (SBX-17). The first provider is **Nix**: the repo's `flake.nix` dev shell (`devShells.<system>.default`) or its `shell.nix`. The image carries the dev shell's closure and environment plus Nix itself, so a session's shell matches `nix develop` / `nix-shell` on the engineer's machine, and a run-branch change to the Nix files is realised at step start from a binary cache reached through the egress proxy (SBX-4, SBX-17). Dev Containers (`devcontainer.json`, incl. its Dockerfile and features) is second, before client installs [4]. Others, e.g. Flox or a plain Dockerfile, can be added without changing workflows, templates or adapters; `project.yaml` names the provider when more than one applies. [0] | M |
 | PRJ-9 ★ | **Route rules** in `project.yaml`: `high-risk` when a change touches the project's sensitive paths (e.g. auth, payments, infra, data migrations) or triage classed the issue as security; `routine` when every pattern in the plan is in the catalog (BLD-3), with no new dependency, migration or protected-path change, and under the project's size limit; `novel` otherwise. The installation sets floors a project can't loosen (e.g. auth and migrations never below `novel`). A new project's catalog is empty, so its runs are `novel` until patterns are accepted. Rules are evaluated by the workflow at intake and on every plan change (ORC-11/12); changing them is a protected-path change (BLD-4). The evaluator is pluggable: a decision model can replace the rule table later without changing workflows. [1] | M |
 
 ## 10. Non-functional requirements
@@ -354,7 +369,7 @@ Priority: **M** must · **S** should · **C** could. `[n]` = phase. ★ = new or
 | NFR-6 Performance | Sandbox start and resume targets set per phase (OQ-13), measured to "project dependencies ready", not just "pod running"; first review in minutes; gateways add negligible latency. |
 | NFR-7 Cost | Waiting runs use storage only, no CPU/memory; per-run and per-vendor token budgets enforced in the LLM gateway; a resumed session re-sends its whole context with a cold prompt cache, so the adapter weighs resume vs handoff. |
 | NFR-8 Usability | Engineers use Factory8 from the forge and the terminal they already work in: every gate, question and status is reachable from an issue/PR and from the `f8` CLI, with no Factory8 UI to learn. Non-engineers file intents through the forge or, later, chat (ART-8). |
-| NFR-9 Portability | No workflow or artifact format references a vendor-specific feature; vendor session files are opaque outside their adapter. |
+| NFR-9 Portability | No workflow or artifact format references a vendor-specific feature; workflows never parse vendor session files (only their adapter and log-analysis tools do). |
 | NFR-10 Operability | Run on-prem k3s with a documented runbook; backups and restore drills. |
 | NFR-11 Isolation | Tenant isolation is per installation (TEN-1/2). |
 
@@ -378,6 +393,7 @@ Sources: forge (issues, PRs, reviews), Temporal history, object storage, CI logs
 | Review | Time to first review; % comments auto-resolved | Pre-merge defects vs escapes |
 | Gates | Gate wait time | Gate violations in prod (0) |
 | Project agent | Sandbox ready time; share of step time spent installing; project agent check pass rate | Egress bytes per run; steps failed for a missing tool or dependency (0) |
+| Dogfooding | Share of Factory8's merged PRs that came from a Factory8 run | Factory8 changes that had to be made outside Factory8, and why |
 | Isolation | Blocked egress/denied-access events per run | Security incidents involving sandboxes (0) |
 | Maintain | Breach→triage-queue intent | % findings → merged fixes; repeat incidents |
 
@@ -404,8 +420,9 @@ Sources: forge (issues, PRs, reviews), Temporal history, object storage, CI logs
 | Node-local PVCs pin a suspended sandbox to one node | Networked storage class for multi-node installs (OQ-21) |
 | NFS-backed workspaces: root inside the VM may hit `root_squash`; small-file I/O (dependency installs, git) is slow | Check both in the A8 spike; keep heavy dependency caches in the project image (SBX-16/18) and only workspace, session and handoff note on the PVC |
 | Project image goes stale, grows huge, or leaks a build credential | Rebuilt on definition/lockfile change and on schedule; branch deltas installed at step start; build secrets never in layers; scanned before push; definition is a protected path (SBX-17, BLD-4) |
-| Project agent drifts from the repo's own devcontainer/`AGENTS.md`, or breaks unnoticed | The repo's own files are the source; `project.yaml` holds only what they can't express (PRJ-1); checked on every change and before runs (PRJ-5) |
+| Project agent drifts from the repo's own environment declaration/`AGENTS.md`, or breaks unnoticed | The repo's own files are the source; `project.yaml` holds only what they can't express (PRJ-1); checked on every change and before runs (PRJ-5) |
 | A step stalls silently (hung CLI, interactive prompt, provider down) | Heartbeats with progress, heartbeat timeout, retry then escalate (ORC-13); live progress in the CLI and PR |
+| Dogfooding: a Factory8 run changes the worker code it runs on | Worker deploys stay manual, behind the human release gate; a run broken by a deploy is retried; replay tests (ORC-6) move earlier if in-flight runs break |
 | CLI-only interface keeps non-engineers out | Accepted: users are engineers; the forge works for everyone; chat intake (ART-8) and a web UI can come later on the same API |
 
 ## 13. Assumptions
@@ -414,16 +431,17 @@ Sources: forge (issues, PRs, reviews), Temporal history, object storage, CI logs
 - A2. Org can name policy owners and approval gates.
 - A3. Existing trackers stay; per-artifact authority is git/forge by default with linkage.
 - A4. Metrics store exists for Phase 3.
-- A5. The prototype runs on the author's own project; one person holds every human role.
+- A5. The prototype runs on Factory8's own repo (dogfooding, from M1) and the author's pilot project (`librepod/marketplace`); one person holds every human role.
 - A6. **Platform base is available:** NixOS k3s with Kata/microVM RuntimeClass was proven in a POC by the product owner; production hardening (HA, storage, upgrades) remains under PLT/NFR-10.
 - A7. LLM providers are reachable over outbound HTTPS through the LLM gateway.
 - A8. agent-sandbox's suspended mode (pod terminated, Sandbox and PVCs kept, PVC reattached on resume) works with the Kata RuntimeClass — verify in a Phase 0 spike on the pilot's NFS storage class, including file ownership for root inside the VM.
 - A9. At least one target CLI resumes a session headlessly (e.g. `claude -p --resume`, `codex exec resume`) — verify per adapter.
 - A10. Object storage (e.g. MinIO) runs in-cluster.
-- A11. The pilot project's issues and code are on GitHub **[ASSUMPTION]**.
+- A11. The pilot project is `librepod/marketplace`; its issues and code are on GitHub (confirmed v0.6).
 - A12. Each installation has an OCI registry for project images (in-cluster or the client's) **[ASSUMPTION]**.
 - A13. Each target vendor CLI accepts a custom API endpoint and key through its own settings (e.g. `ANTHROPIC_BASE_URL`) and runs headless without interactive prompts — verify per adapter in Phase 0.
-- A14. Dev Container images can be built headlessly in the builder (e.g. with the reference `devcontainer` CLI) — verify in Phase 0.
+- A14. A Nix dev shell (`flake.nix` or `shell.nix`) can be built headlessly in the builder into an OCI image whose environment matches the dev shell (e.g. with `dockerTools` or nix2container), and runs under Kata — verify in Phase 0. Dev Container images (reference `devcontainer` CLI) — verify before Phase 4.
+- A15. Claude Code in headless mode (`-p`) still offers its `AskUserQuestion` tool, and a `PreToolUse` hook can intercept it — verify in Phase 0; if not, the `f8-ask` fallback (SBX-11) is needed for Claude Code from Phase 0.
 
 ## 14. Open questions
 
@@ -431,7 +449,7 @@ Sources: forge (issues, PRs, reviews), Temporal history, object storage, CI logs
 |---|---|---|
 | ~~OQ-1~~ | ~~Vendor-specific vs agnostic~~ **Resolved: agnostic** | — |
 | OQ-2 | ~~Pilot~~ **Resolved: author's own project**; first policy bundle still open | Phase 1 |
-| OQ-3 | Phase order acceptable (platform skeleton first)? | PRD sign-off |
+| ~~OQ-3~~ | ~~Phase order~~ **Resolved: skeleton first, delivered as dogfooded increments M1–M4 (§8)** | — |
 | ~~OQ-4~~ | ~~Source of truth~~ **Resolved (v0.3): git/forge; beads dropped** | — |
 | ~~OQ-5~~ | ~~Route definitions~~ **Resolved: rule table in `project.yaml` within installation floors; a decision model can replace it later** (PRJ-9) | — |
 | OQ-6 | Confidence-gate thresholds/design (MNT-6 gives default shape) | Phase 3 |
@@ -444,13 +462,13 @@ Sources: forge (issues, PRs, reviews), Temporal history, object storage, CI logs
 | OQ-13 | Sandbox start, resume and concurrency targets (nodes, warm pool size) | Phase 0 |
 | ~~OQ-14~~ | ~~Round-trip edits~~ **Resolved: reviewers edit the files directly** | — |
 | OQ-15 | Which forges: GitHub for the pilot (A11); which on-prem forge for client installs (GitLab/Gitea/GitHub Enterprise)? | Phase 0 |
-| OQ-16 | Artifact formats (front-matter, file layout on the run branch), intake envelope and source-adapter interface, agent adapter contract, `.factory8/project.yaml` schema — exact spec | Phase 0 |
+| OQ-16 | Artifact formats (front-matter, file layout on the run branch), intake envelope and source-adapter interface, agent adapter contract — exact spec (draft: `specs/phase0-contracts.md`); `.factory8/project.yaml` schema when first needed | Phase 0; schema Phase 1 |
 | ~~OQ-17~~ | ~~Multi-tenancy~~ **Resolved: one installation per client; namespace per project** | — |
 | ~~OQ-18~~ | ~~First vendors~~ **Resolved: Claude Code, then Codex, then pi** (AGT-2) | — |
 | ~~OQ-19~~ | ~~Workflow language~~ **Resolved: TypeScript on Node LTS** (PLT-8) | — |
 | ~~OQ-20~~ | ~~Routine PR approval~~ **Resolved: independent verifier + deterministic checks; installations may require a human on every PR** (DEP-2) | — |
 | ~~OQ-21~~ | ~~PVC storage class~~ **Resolved for the pilot: the cluster's NFS provisioner; per installation for clients, networked on multi-node** (SBX-15) | — |
-| ~~OQ-22~~ | ~~Environment format~~ **Resolved: `devcontainer.json` first, behind environment providers (PRJ-8); Flox, Nix flake or Dockerfile later if needed** | — |
+| ~~OQ-22~~ | ~~Environment format~~ **Resolved: behind environment providers (PRJ-8); Nix dev shell first (v0.6; the author's projects), Dev Containers before client installs, Flox or Dockerfile later if needed** | — |
 
 ## 15. Traceability
 
