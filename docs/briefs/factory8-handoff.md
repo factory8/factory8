@@ -19,9 +19,9 @@ Read this first, then `docs/PRD.md`. These are the author's notes for Factory8, 
 ## Decisions this session (PRD v0.6)
 
 - **Dogfooding (G11, OQ-3 resolved):** Factory8 is developed with Factory8. Phase 0 lands as usable increments:
-  - M1: `f8 run <issue>` → sandbox built from the repo's Nix shell → Claude Code → draft PR.
+  - M1: `f8 run <bead>` → sandbox built from the repo's Nix shell → Claude Code → draft PR.
   - M2: heartbeats and progress, session logs, `f8 runs`.
-  - M3: `needs_input` → suspend/resume, `/answer`, `f8 answer`.
+  - M3: `needs_input` → suspend/resume, `f8 answer`.
   - M4: retry after a stall or sandbox death.
   - The pilot `librepod/marketplace` runs alongside.
 - **Nix first (PRJ-8):** the first environment provider reads a `flake.nix` dev shell or `shell.nix`. Dev Containers move to Phase 4. A14 is now the Nix image spike.
@@ -38,17 +38,18 @@ Read this first, then `docs/PRD.md`. These are the author's notes for Factory8, 
 - **POC first:**
   - No git gateway. A GitHub token (`GH_TOKEN`) and one static LiteLLM key reach the sandbox from a Kubernetes Secret, and the agent pushes directly (spec §5).
   - This is tracked as [#1](https://github.com/factory8/factory8/issues/1) (label `hardening`).
-  - **Don't ask hardening questions.** File them as `hardening` issues instead.
+  - **Don't ask hardening questions.** File them as beads labelled `hardening` instead.
 
-## Next step: build M1, bottom-up
+## Next step: the plan is in beads
 
-1. **Done on the host:** `adapter/` (`f8-adapter serve`, `f8-ask`) with tests (`npm test`, fake `claude`), and runs against real Claude Code 2.1.289 for push + trailer and for ask → answer → resume.
-   - **A15 was false:** headless mode has no `AskUserQuestion`, so `f8-ask` is the question mechanism and Phase 0 uses no vendor hooks.
-   - **Left:** run it against LiteLLM (A13). That needs LiteLLM's URL and a key from the user.
-2. Project image from the factory8 flake's dev shell + Claude Code + adapter (`nix build`). This proves A14.
-3. The user creates the GitHub token and the Kubernetes Secret.
-4. Temporal (own Postgres) + worker **in the cluster** (Kata pods can't be port-forwarded) + a one-step workflow: Kata `Sandbox` → start step → poll → draft PR.
-5. `f8 run <issue>` talks to Temporal directly, which makes the first dogfooded PR on factory8/factory8.
+The plan is `docs/plans/poc-wbs.md`. Its tasks are beads under the epics M1 (`factory8-4cd`) to M4. Run `bd ready` to list the unblocked tasks, and ask the user which one to take.
+
+- **Done:** `adapter/` (`f8-adapter serve`, `f8-ask`) with tests (`npm test`, fake `claude`), and runs on the host against real Claude Code 2.1.289 covering push + trailer and ask → answer → resume.
+- **A15 was false:** headless mode has no `AskUserQuestion`, so `f8-ask` is the question mechanism, and Phase 0 uses no vendor hooks.
+- **Ready now, can run in parallel:**
+  - the cluster check;
+  - the LiteLLM check (A13), which needs LiteLLM's URL and a key from the user;
+  - the project image from the Nix dev shell (A14).
 
 ## Still open
 
@@ -74,7 +75,8 @@ Read this first, then `docs/PRD.md`. These are the author's notes for Factory8, 
 ## How to work with the user
 
 - **Grill style:** ask one question at a time, with a guess attached, and push back when warranted. Keep proposals minimal; the user dislikes over-engineering.
-- **POC first.** Prefer extending existing tools over writing new services. Skip security and hardening questions: take the direct path and file a `hardening` issue.
+- **POC first.** Prefer extending existing tools over writing new services. Skip security and hardening questions: take the direct path and file a `hardening` bead.
+- **Plan before building.** Agree the plan before writing code, then do one task per session with the user's review in between. Don't build a whole milestone in one go.
 - **After any PRD change:**
   1. Add a §0 row.
   2. Update `prd.html` and `architecture.html`.

@@ -7,6 +7,7 @@ Factory8 is a self-hosted AI-native software factory. Temporal workflows, writte
 - `docs/PRD.md`: the requirements. It's a draft, requirement IDs are stable, and §0 logs every change.
 - `docs/specs/phase0-contracts.md`: the Phase 0 contracts (agent adapter, project detection, …).
 - `docs/briefs/factory8-handoff.md`: the latest session handoff.
+- `docs/plans/poc-wbs.md`: the POC plan. Its tasks and their order live in beads: `bd ready` lists unblocked work, `bd show <id>` gives the details.
 
 ## Environment
 
@@ -34,7 +35,7 @@ To serve the site: `python3 -m http.server 8080 --directory docs/site`.
 ## Rules
 
 - Phase 0: build the smallest thing that works. No speculative config, options or abstractions.
-- POC first: don't design security hardening into the POC. File each gap as a GitHub issue labelled `hardening` and link it from the PRD (see #1).
+- POC first: don't design security hardening into the POC. File each gap as a bead labelled `hardening` (`bd create … -l hardening`); #1 on GitHub is the one exception.
 - Never commit credentials or client data.
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:46cd31e7 -->
