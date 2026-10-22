@@ -10,12 +10,16 @@ Factory8 is a self-hosted AI-native software factory. Temporal workflows, writte
 
 ## Environment
 
-`nix develop` gives you Node 24 LTS, the Temporal CLI, kubectl, d2 and python3.
+`nix develop` gives you Node 24 LTS, the Temporal CLI, kubectl, d2 and python3. Node runs the TypeScript directly (type stripping, so erasable syntax only); there is no build step.
+
+- `npm test`: tests (`node --test`).
+- `npm run typecheck`: `tsc`, no emit.
 
 ## Layout
 
 - `docs/`: the PRD, specs, briefs, and `site/` (HTML summaries and D2 diagrams).
-- Code: npm workspaces (`worker/`, `adapter/`, `gateways/`, `cli/`), added with Phase 0 M1.
+- `adapter/`: `f8-adapter`, the daemon inside each sandbox that runs the agent CLI (spec §1), and `f8-ask`.
+- Coming with M1: `worker/` (Temporal) and `cli/` (`f8`), as more npm workspaces.
 
 ## When the PRD changes
 
@@ -30,4 +34,5 @@ To serve the site: `python3 -m http.server 8080 --directory docs/site`.
 ## Rules
 
 - Phase 0: build the smallest thing that works. No speculative config, options or abstractions.
+- POC first: don't design security hardening into the POC. File each gap as a GitHub issue labelled `hardening` and link it from the PRD (see #1).
 - Never commit credentials or client data.
