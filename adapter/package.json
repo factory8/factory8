@@ -1,0 +1,12 @@
+{
+  "name": "@factory8/adapter",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "f8-adapter": "src/main.ts",
+    "f8-ask": "bin/f8-ask"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}
