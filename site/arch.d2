@@ -1,0 +1,51 @@
+vars: {d2-config: {layout-engine: elk}}
+direction: down
+humans: "HUMANS — gates per route" {
+  style: {fill: "#e8f5e9"; bold: true}
+  h: "originator · product owner · engineer · code owner\nrelease manager · service owner\n(prototype: the author holds every role)"
+}
+forge: "Git forge (GitHub for the pilot)\nissue = intent · spec.md / plan.md on run branch\ndraft PR · reviews · branch protection" {style: {fill: "#fff8e1"; bold: true}}
+cp: "CONTROL PLANE — trusted · one installation per client · on-prem k3s (NixOS)" {
+  style: {fill: "#e3f2fd"; bold: true}
+  intake: "Intake adapters (pollers)\n→ IntentEnvelope → IntakeWorkflow\nscreen · classify · reproduce · ask · draft intent"
+  tmp: "Temporal (+ Postgres)\nstage · route · retries · timers · waits" {style: {fill: "#bbdefb"; bold: true}}
+  wf: "SDLC workflows + workers + API\nTypeScript on Node LTS · replay-tested"
+  obj: "Object storage (MinIO)\nevidence by content hash" {shape: cylinder}
+  gw: "Gateways — scoped, short-lived per-run tokens" {
+    style: {fill: "#bbdefb"}
+    g: "Git (run branch only)"
+    l: "LLM (any provider; keys, budgets)"
+    d: "Deploy (per-env tools)"
+  }
+  ctrl: "agent-sandbox controller\ntemplate · warm pool · suspend / resume"
+  builder: "Project agent builder\ndevcontainer.json · AGENTS.md · project.yaml\n→ image + SandboxTemplate · checked"
+  builder -> ctrl: "project template"
+  intake -> tmp: starts runs
+  wf -> tmp: runs on
+  wf -> ctrl: "activity: run step"
+}
+ep: "EXECUTION PLANE — untrusted · disposable" {
+  style: {fill: "#ffebee"; bold: true}
+  sb: "Sandbox = Kata microVM\nroot inside OK: docker compose, installs\nagent adapter → any CLI (claude · codex · pi …)" {style: {fill: "#ffcdd2"; bold: true}}
+  pvc: "PVC: workspace · vendor session dir\nhandoff note — kept while suspended\nnever credentials" {shape: cylinder}
+  proxy: "Egress proxy — allowlist\n→ read-only package mirrors"
+  ci: "Secret-free CI runners\nfor agent branches"
+  sb -> pvc
+}
+blocked: "BLOCKED: Temporal · k8s API · other sandboxes\ncluster network · open internet" {style: {fill: "#fff"; stroke: "#d32f2f"; font-color: "#d32f2f"; bold: true}}
+out: "Outside: LLM providers · package registries\nJira/Confluence (linked)" {style: {fill: "#f3e5f5"}}
+
+humans -> forge: "file issues · /accept · /answer\nedit spec/plan · approve PR · authorize release"
+humans -> cp.wf: "f8 CLI (API): runs · progress\nanswer · accept · retry"
+forge <- cp.intake: "poll issues (outbound only)"
+forge -> cp.tmp: "commands → signals"
+cp.ctrl -> ep.sb: "create · suspend · resume · delete"
+cp.gw <- ep.sb: "git push · model calls · deploy"
+cp.obj <- ep.sb: "evidence (presigned URLs)"
+ep.sb -> ep.proxy: "installs"
+ep.sb -> blocked: "" {style: {stroke: "#d32f2f"; stroke-width: 3; stroke-dash: 4}}
+forge <- cp.gw.g: "push run branch"
+forge <- cp.builder: "read project files\n(default branch)"
+forge -> ep.ci: "agent branches"
+cp.gw.l -> out
+ep.proxy -> out

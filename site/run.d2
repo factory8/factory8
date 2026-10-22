@@ -1,0 +1,29 @@
+shape: sequence_diagram
+w: "Temporal\nworkflow"
+c: "Sandbox\ncontroller"
+s: "Sandbox\n(Kata microVM + PVC)"
+g: "Git / LLM\ngateways"
+o: "Object\nstorage"
+f: "Git forge"
+h: "Human"
+
+w -> g: "1 mint scoped tokens\nfor run + step"
+w -> c: "2 create Sandbox from template\n(agent profile, size, egress policy)"
+c -> s: start
+s -> g: "3 check out run branch,\nread intent / spec / plan"
+s."4 agent works\n(code, docker compose, tests)"
+s -> w: "5 needs_input:\nquestion + handoff note"
+w -> c: "6 suspend: pod gone, PVC kept,\ntokens revoked"
+w -> f: "7 post question on issue / PR"
+h -> f: "8 /answer …"
+f -> w: signal
+w -> c: "9 resume: PVC reattached,\nsetup script, fresh tokens"
+s."10 adapter resumes the vendor session\nwith the answer (or handoff fallback)"
+s -> g: "11 push commits to run branch"
+g -> f: push
+s -> o: "12 evidence (presigned URL)"
+s -> w: "13 done"
+w -> c: "14 delete Sandbox + PVC\n(tokens revoked)"
+f -> h: "15 draft PR: spec.md / plan.md / diff\n+ findings + evidence links"
+h -> f: "16 /accept or approve\n(gate skipped on routine)"
+f -> w: "signal → next stage"

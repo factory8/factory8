@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI-Native SDLC — Essentials</title>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--fg:#e2e8f0;--mut:#94a3b8;--acc:#38bdf8;--red:#f87171;--grn:#4ade80}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:24px 16px 64px}
+h1{font-size:2rem;margin:.2em 0}h2{margin:2.2em 0 .4em;color:var(--acc)}p.lead{color:var(--mut);font-size:1.1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.card{background:var(--card);border-radius:12px;padding:14px 16px}.card b{color:var(--acc)}
+.fig{background:#fff;border-radius:12px;padding:12px;text-align:center}
+.fig img{max-width:100%;max-height:85vh}.cap{color:var(--mut);font-size:.9rem;margin:6px 2px 0}.cap a{color:var(--acc)}
+table{width:100%;border-collapse:collapse;background:var(--card);border-radius:12px;overflow:hidden}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid #334155;vertical-align:top}th{color:var(--mut);font-weight:600}
+code{background:#334155;padding:1px 6px;border-radius:4px}
+.big{font-size:1.25rem;border-left:4px solid var(--red);padding:8px 14px;background:var(--card);border-radius:0 12px 12px 0}
+</style></head><body><main>
+<p style="color:#94a3b8"><a href="prd.html" style="color:#38bdf8">→ PRD at a glance</a> · <a href="architecture.html" style="color:#38bdf8">→ Architecture (draft)</a></p>
+<h1>The AI-Native SDLC in 5 minutes</h1>
+<p class="lead">Same six stages, same control objectives — but a <b>loop</b> instead of a line, with AI in every stage and humans governing at the gates.</p>
+
+<h2>Why change?</h2>
+<div class="grid">
+<div class="card"><b>Code isn't the bottleneck.</b> Agents build in hours; plan, review/test and deploy still run at human speed.</div>
+<div class="card"><b>Old controls don't scale.</b> Line-by-line human review and weekly committees can't keep up with agent output.</div>
+<div class="card"><b>So: same controls, new enforcement.</b> Policy lives in versioned files and hooks, applied as the agent acts.</div>
+<div class="card"><b>Humans stay accountable.</b> Attention moves from watching edits to approving artifacts at gates.</div>
+</div>
+
+<h2>1 · The loop</h2>
+<div class="fig"><img src="loop.svg" alt="SDLC loop"></div>
+<p class="cap">Every stage <b>commits an artifact</b> the next stage reads. The commit chain <i>is</i> the audit trail. Solid arrows: artifact handoff with a human acceptance. Red dashed: production signals re-enter as a new <code>intent.md</code>. <a href="loop.svg">full size</a> · <a href="loop.d2">source</a></p>
+
+<table style="margin-top:14px"><tr><th>Stage</th><th>Artifact</th><th>Human decision</th><th>What the AI does</th></tr>
+<tr><td>Plan</td><td><code>intent.md</code></td><td>Product owner accepts</td><td>Brainstorms with originator, writes problem/outcome/constraints/open questions</td></tr>
+<tr><td>Design</td><td><code>spec.md</code></td><td>PO accepts; resolves flagged policy concerns</td><td>Writes requirements+design under brand/security/compliance/UX skills</td></tr>
+<tr><td>Build</td><td><code>plan.md</code> → diff</td><td>Engineer approves plan</td><td>Plans in read-only plan mode, then implements; parallel sessions + subagents</td></tr>
+<tr><td>Test</td><td>test/build output, evals</td><td>Code owner reviews with evidence attached</td><td>Verifies its own work in a feedback loop; evals regression-test the agent config</td></tr>
+<tr><td>Deploy</td><td>PR + findings</td><td>Code owner approves; release manager authorizes prod</td><td>Reviews PRs (<code>REVIEW.md</code>), fixes comments, runs CI/CD, prepares release</td></tr>
+<tr><td>Maintain</td><td>incident record, new <code>intent.md</code></td><td>Service owner triages: fix / schedule / dismiss</td><td>Diagnoses breached bands, proposes PR or runbook, writes post-mortem</td></tr></table>
+
+<h2>2 · Governance: the agent acts up to the gate, never past it</h2>
+<div class="big">Advisory controls make violations rare. Deterministic controls make them (near) impossible. Separation of duties: the agent that wrote the code cannot approve it.</div>
+<div class="fig" style="margin-top:12px"><img src="governance.svg" alt="Governance layers"></div>
+<p class="cap">Skills / <code>CLAUDE.md</code> guide; hooks, managed settings, sandbox, branch protection and per-environment MCP tools enforce. Autonomy is tiered: dev free, staging middle, prod human-authorized. <a href="governance.svg">full size</a> · <a href="governance.d2">source</a></p>
+
+<h2>3 · Closing the loop (Maintain)</h2>
+<div class="fig"><img src="maintain.svg" alt="Closing the loop"></div>
+<p class="cap"><b>Detection is deterministic</b> (rolling baseline, no model). Claude is invoked only after a breach, and the σ tier sets what it may do: 1σ log, 2σ diagnose read-only, 3σ propose a PR or pre-approved runbook. Every incident becomes a permanent eval. <a href="maintain.svg">full size</a> · <a href="maintain.d2">source</a></p>
+
+<h2>Building blocks</h2>
+<div class="grid">
+<div class="card"><b>CLAUDE.md</b> — day-one context for the agent; a mistake made twice goes in. Under a page.</div>
+<div class="card"><b>Skills</b> — org policy as versioned, owner-signed instructions. Advisory.</div>
+<div class="card"><b>Hooks</b> — allow / ask / block on every action. Deterministic; non-negotiable ones in managed settings.</div>
+<div class="card"><b>Subagents &amp; worktrees</b> — verifier, simplifier, researcher; 2–3 parallel sessions per engineer, limited by review capacity.</div>
+<div class="card"><b>Evals in CI</b> — 20–50 real tasks re-run on any change to config; every incident adds one.</div>
+<div class="card"><b>Source of truth</b> — name exactly one per artifact (repo or Jira etc.); minimum bar is cross-linking record ID ↔ commit SHA.</div>
+</div>
+
+<h2>Measure it</h2>
+<table><tr><th>Idea</th><th>Signals (all from git / PR / CI / OTel)</th></tr>
+<tr><td>Speed</td><td>Idea→committed intent; intent→spec; plan→merge; time to first review; breach→intent</td></tr>
+<tr><td>Quality</td><td>First-pass CI success; rework cycles; diff matches plan; defects caught pre-merge vs escaped; eval pass rate</td></tr>
+<tr><td>Governance</td><td>Gate wait time; gate violations reaching prod; review findings citing policy → 0</td></tr></table>
+
+<p class="cap" style="margin-top:32px">Source: AI-Native SDLC Playbook (Anthropic). Full digest: <code>SDLC_Playbook_Essentials.md</code>.</p>
+</main></body></html>

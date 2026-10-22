@@ -1,0 +1,17 @@
+direction: down
+classes: {
+  stage: {style: {border-radius: 14; font-size: 22; bold: true; stroke-width: 2; fill: "#e3f2fd"}}
+}
+plan: "1 PLAN\nidea → intent" {class: stage}
+design: "2 DESIGN\nintent → spec" {class: stage}
+build: "3 BUILD\nspec → plan → code" {class: stage}
+test: "4 TEST\nagent self-verifies, evals" {class: stage}
+deploy: "5 DEPLOY\nAI review, gates, CI/CD" {class: stage}
+maintain: "6 MAINTAIN\nmonitor, diagnose" {class: stage}
+
+plan -> design: "intent.md\n👤 product owner accepts"
+design -> build: "spec.md\n👤 human accepts spec"
+build -> test: "plan.md → diff\n👤 engineer approves plan"
+test -> deploy: "merged PR + test/eval evidence"
+deploy -> maintain: "review findings\n👤 code owner + release manager"
+maintain -> plan: "band breached → NEW intent.md\n(loop closes, agent-written, human-triaged)" {style: {stroke: "#d32f2f"; stroke-width: 3; stroke-dash: 4}}

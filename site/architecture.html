@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Factory8 — Architecture</title>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--fg:#e2e8f0;--mut:#94a3b8;--acc:#38bdf8;--red:#f87171;--amb:#fbbf24}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:24px 16px 64px}a{color:var(--acc)}
+h1{font-size:2rem;margin:.2em 0}h2{margin:2em 0 .4em;color:var(--acc)}p.lead{color:var(--mut);font-size:1.1rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.card{background:var(--card);border-radius:12px;padding:14px 16px}.card b{color:var(--acc)}
+.fig{background:#fff;border-radius:12px;padding:12px;text-align:center}.fig img{max-width:100%;max-height:90vh}
+table{width:100%;border-collapse:collapse;background:var(--card);border-radius:12px;overflow:hidden}
+th,td{padding:8px 12px;text-align:left;border-bottom:1px solid #334155;vertical-align:top}th{color:var(--mut)}
+code{background:#334155;padding:1px 6px;border-radius:4px}.cap{color:var(--mut);font-size:.9rem}
+.warn{border-left:4px solid var(--amb);background:var(--card);padding:10px 14px;border-radius:0 12px 12px 0}
+.rule{border-left:4px solid var(--red);background:var(--card);padding:10px 14px;border-radius:0 12px 12px 0}
+</style></head><body><main>
+<p class="cap"><a href="index.html">SDLC essentials</a> · <a href="prd.html">PRD at a glance</a> · Architecture (draft) · <a href="PRD.md">PRD v0.5</a></p>
+<h1>Factory8 architecture</h1>
+<p class="lead">Agent-agnostic, one installation per client on on-prem k3s. Intents come in through intake, Temporal workflows written in TypeScript run the process, git holds the artifacts, disposable Kata microVMs run each repo's declared project agent, and gateways are the only door out. Humans work from the forge and the <code>f8</code> CLI.</p>
+
+<h2>The big picture</h2>
+<div class="fig"><img src="arch.svg" alt="Architecture"></div>
+<p class="cap">Blue = trusted control plane · red = untrusted execution plane · dashed red = what the sandbox can never reach. Intake polls the forge, outbound only; no public endpoint. <a href="arch.svg">full size</a> · <a href="arch.d2">source</a></p>
+
+<h2>One step, end to end (with a mid-step question)</h2>
+<div class="fig"><img src="run.svg" alt="Step sequence"></div>
+<p class="cap">The sandbox runs only while the agent works. A question suspends it: the pod is gone, the PVC (workspace, vendor session, handoff note) is kept, and tokens are revoked, so waiting costs no compute. Stage gates delete the sandbox instead, and the next stage starts fresh from git, possibly with another vendor. <a href="run.svg">full size</a> · <a href="run.d2">source</a></p>
+
+<h2>Who owns what</h2>
+<table><tr><th>Component</th><th>Owns</th><th>Never owns</th></tr>
+<tr><td>Temporal (+ Postgres)</td><td>Stage, route, retries, timers, every human wait; passes references (repo@sha, object keys)</td><td>Artifact content; the only copy of a gate decision</td></tr>
+<tr><td>SDLC workflows (TypeScript, Node LTS)</td><td>The process as code: stages, loops, child workflows; per-step config (agent profile, sandbox size, egress)</td><td>Hardcoded per-step settings; unversioned changes (replay tests gate every change)</td></tr>
+<tr><td>Intake (adapters + IntakeWorkflow)</td><td>Polling sources, <code>IntentEnvelope</code>, trust tier, triage (screen, classify, reproduce, ask), draft intent</td><td>Starting a run without a human <code>/accept</code></td></tr>
+<tr><td>Git forge</td><td>Intent (issue), <code>spec.md</code>/<code>plan.md</code> on the run branch, code, PR reviews, gate decisions, branch protection</td><td>Evidence blobs</td></tr>
+<tr><td>Object storage (MinIO)</td><td>Evidence by content hash: tool output, transcripts, screenshots; linked from the PR</td><td>Anything committed to the repo</td></tr>
+<tr><td>Gateways (git, LLM, deploy)</td><td>All agent access to the forge, models and environments; scoped per run, short-lived</td><td>—</td></tr>
+<tr><td>Project agent (repo's <code>devcontainer.json</code> + <code>AGENTS.md</code> + <code>.factory8/project.yaml</code>) + builder</td><td>What an agent needs for this repo: environment image (via an environment provider; Dev Containers first) and <code>SandboxTemplate</code>, context, commands, tools (skills, MCP servers, CLIs), default profiles; built and checked from the default branch only, build secrets kept out of image layers</td><td>Runtime class, network policy, resource ceilings, approved egress and secrets (admin-owned); builds from run branches</td></tr>
+<tr><td><code>f8</code> CLI</td><td>The human interface besides the forge: runs, live step progress, pending gates and questions, answer/accept/retry/cancel, evidence, project agent checks</td><td>Anything the control-plane API doesn't also expose (a web UI can come later on the same API)</td></tr>
+<tr><td>Sandbox (Kata microVM) + PVC</td><td>Running the agent CLI with root, docker compose, installs; workspace and vendor session while suspended</td><td>Credentials, cluster access, open internet</td></tr></table>
+
+<h2>Rules the architecture enforces</h2>
+<div class="rule">The agent may act up to the production gate and never past it, enforced by <b>platform controls</b> (network policy, gateways, signals), not by agent-specific hooks. That is what makes it vendor-agnostic.</div>
+<div class="grid" style="margin-top:12px">
+<div class="card"><b>Root is fine, reach is not.</b> Root inside a microVM can't touch the host; the egress allowlist and gateways limit what it can see or send.</div>
+<div class="card"><b>No standing secrets.</b> LLM keys live in the LLM gateway; git tokens are minted per step and revoked on delete or suspend. Nothing secret lands on a PVC.</div>
+<div class="card"><b>Intake is the trust boundary.</b> Issue text is untrusted data; only a Factory8-drafted intent accepted by someone with write access drives a run.</div>
+<div class="card"><b>Agent output is untrusted input.</b> Commits and comments from one agent are data, not instructions, to the next.</div>
+<div class="card"><b>Humans review in the forge.</b> They edit <code>spec.md</code>/<code>plan.md</code> directly; <code>/accept</code> or approval becomes a Temporal signal. Author ≠ approver.</div>
+<div class="card"><b>Humans own the route.</b> The agent proposes <code>routine</code>/<code>novel</code>/<code>high-risk</code>; a human confirms. Any step may escalate; only a human de-escalates.</div>
+</div>
+
+<h2>Platform base</h2>
+<div class="card"><b>On-prem NixOS k3s with Kata microVMs: proven in a POC</b> (by the product owner), so it is treated as available. Still to harden for client installs: backups for Postgres and object storage, PVC storage for suspended sandboxes (pilot: NFS provisioner; networked class on multi-node client installs, OQ-21), egress proxy and read-only mirrors, secret-free CI runners, upgrades. Model access: outbound HTTPS to providers through the LLM gateway only.</div>
+
+<h2>Phase 0 spikes</h2>
+<table><tr><th>#</th><th>Prove that…</th></tr>
+<tr><td>1</td><td>The agent-sandbox controller drives Kata sandboxes from a per-project <code>SandboxTemplate</code> (pilot repo image, dependencies preinstalled) on the existing cluster, with default-deny NetworkPolicy and an egress proxy</td></tr>
+<tr><td>2</td><td>Suspend works under Kata: pod terminated, Sandbox and PVC kept, PVC reattached at the same paths on resume (A8)</td></tr>
+<tr><td>3</td><td>Claude Code runs headless behind the adapter contract, talks to a custom LLM provider through the gateway (A13), heartbeats its progress, and resumes a session after <code>needs_input</code>, with the handoff note as fallback (A9)</td></tr>
+<tr><td>4</td><td>A TypeScript Temporal workflow runs 3 steps, retries a failed step, waits on a human signal and passes a replay test</td></tr>
+<tr><td>5</td><td>The git gateway limits a run token to its run branch, and a forge command (<code>/answer</code>, <code>/accept</code>) reaches Temporal as a signal</td></tr></table>
+</main></body></html>

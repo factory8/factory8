@@ -1,0 +1,10 @@
+direction: down
+p0: "PHASE 0\nPlatform skeleton\nTemporal · object storage\nsandbox + egress proxy · gateways\n1 vendor · suspend/resume" {style: {fill: "#e8f5e9"; bold: true}}
+p1: "PHASE 1\nGuided loop\nGitHub issue intake + triage\nintent → spec → plan → PR\nhuman gates · 2nd vendor" {style: {fill: "#e3f2fd"; bold: true}}
+p2: "PHASE 2\nRoutine route + delivery\nroute rules · escalation · patterns\nevals · parallel runs\ndeploy gateway · rollback" {style: {fill: "#fff8e1"; bold: true}}
+p3: "PHASE 3\nClosed loop\nbands → diagnose → intent\nconfidence gates · chat bridge" {style: {fill: "#ffebee"; bold: true}}
+p4: "PHASE 4\nClient-ready\npackaged install · auth/RBAC\nread-only egress · secret-free CI\noutside-reporter intake" {style: {fill: "#f3e5f5"; bold: true}}
+p0 -> p1: "steps survive failure;\nresume with no pod held"
+p1 -> p2: "issue → merged PR,\nhumans at every gate, 2 vendors"
+p2 -> p3: "routine change: humans\nonly at intent + release"
+p3 -> p4: "breach → triaged intent\nwith no human starting it"

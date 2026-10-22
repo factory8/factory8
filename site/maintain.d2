@@ -1,0 +1,23 @@
+direction: down
+prod: "Production metrics\n(5xx, CI failure rate, PR cycle time)" {shape: cylinder}
+det: "Deterministic detector\nrolling baseline, Western Electric rules\nNO model involved" {style: {fill: "#e3f2fd"; bold: true}}
+t1: "1σ → log only" {style: {fill: "#e8f5e9"}}
+t2: "2σ → Claude diagnoses\n(read-only tools)" {style: {fill: "#fff8e1"}}
+t3: "3σ → Claude proposes:\nPR into review gate\nOR pre-approved runbook\n(e.g. rollback)" {style: {fill: "#ffebee"}}
+i: "intent.md\n(anomaly · evidence · outcome)" {shape: document}
+triage: "Service owner / on-call\nfix now · schedule · dismiss" {shape: hexagon; style: {fill: "#e8f5e9"}}
+pipe: "Stages 1-5 again\n(spec → plan → build → test → review)"
+eval: "New eval from incident\n(regression test)" {shape: document}
+slack: "Slack incident channel\n(Claude Tag first responder)" {style: {fill: "#f3e5f5"}}
+prod -> det: scrape
+det -> t1
+det -> t2
+det -> t3
+t2 -> i
+t3 -> i
+slack -> i: "incident / ticket"
+i -> triage
+triage -> pipe: accepted
+triage -> det: "dismissal tunes bands" {style: {stroke-dash: 4}}
+pipe -> eval: fix ships
+eval -> det: "repeat incidents fall" {style: {stroke-dash: 4}}

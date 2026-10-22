@@ -1,0 +1,26 @@
+direction: down
+agent: "Claude agent\n(own identity, sandboxed)" {style: {fill: "#e3f2fd"; font-size: 18; bold: true}}
+adv: "Advisory controls — make violations RARE" {
+  style: {fill: "#fffde7"}
+  a1: CLAUDE.md
+  a2: Skills (brand · security · compliance · UX)
+  a3: "REVIEW.md passes"
+}
+det: "Deterministic controls — make violations (near) IMPOSSIBLE" {
+  style: {fill: "#ffebee"}
+  d1: "Hooks (allow / ask / block)"
+  d2: "Managed settings + sandbox\n+ network allowlist"
+  d3: "Branch protection\n+ code owners"
+  d4: "Per-env MCP tools\n(deploy · status · rollback)"
+}
+dev: "Dev: agent deploys freely" {style: {fill: "#e8f5e9"}}
+stg: "Staging: middle tier" {style: {fill: "#fff3e0"}}
+gate: "PRODUCTION GATE\nnamed release manager authorizes" {shape: diamond; style: {fill: "#ffcdd2"; bold: true; font-size: 16}}
+prod: "Production" {style: {fill: "#ffebee"; bold: true}}
+agent -> adv: "guided by"
+adv -> det: "backed by"
+det -> dev -> stg -> gate
+gate -> prod: "human only" {style: {stroke: "#d32f2f"; stroke-width: 3}}
+agent -> gate: "may act UP TO the gate,\nnever past it" {style: {stroke-dash: 4; stroke: "#d32f2f"}}
+audit: "Audit trail = git history + PR + OTel logs" {shape: cylinder; style: {fill: "#f3e5f5"}}
+det -> audit: logs
