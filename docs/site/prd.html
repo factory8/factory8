@@ -36,8 +36,10 @@ code{background:#334155;padding:1px 6px;border-radius:4px}
 <tr><td><span class="ok">resolved</span> Environment providers</td><td>Nix dev shell first (<code>flake.nix</code> or <code>shell.nix</code>; the author's projects are all Nix); Dev Containers before client installs (Phase 4); Flox or a Dockerfile can plug in later behind the same interface (OQ-22). Pilot: <code>librepod/marketplace</code></td></tr>
 <tr><td>Custom LLM providers</td><td>Each vendor CLI is pointed at the LLM gateway (e.g. <code>ANTHROPIC_BASE_URL</code>); the gateway routes to any configured provider, including self-hosted ones</td></tr>
 <tr><td>No silent stalls</td><td>Steps heartbeat with live progress; a stalled step is retried, then escalated</td></tr>
-<tr><td>Adapter in the sandbox</td><td>A small daemon inside the sandbox runs the agent CLI; workers start steps through it and poll its events for heartbeats, so a worker restart never stops an agent. The agent asks questions with its CLI's own tool, caught by an adapter hook</td></tr>
+<tr><td>Adapter in the sandbox</td><td>A small daemon inside the sandbox runs the agent CLI; workers start steps through it and poll its events for heartbeats, so a worker restart never stops an agent. The agent asks questions by running <code>f8-ask</code>, the same for every CLI</td></tr>
 <tr><td><span class="ok">resolved</span> Dogfooding</td><td>Factory8 is developed with Factory8 from M1; <code>librepod/marketplace</code> is the pilot alongside it. Phase 0 lands as usable increments: M1 issue → sandboxed agent → draft PR · M2 live progress, session logs · M3 questions with suspend/resume · M4 recovery (OQ-3)</td></tr>
+<tr><td>LLM gateway = LiteLLM</td><td>The existing instance on the pilot cluster; per-step virtual keys are the target design. LiteLLM can't also proxy git</td></tr>
+<tr><td><span class="tag">POC</span> Credentials in the sandbox</td><td>To get a working POC fast, Phase 0 gives sandboxes a GitHub token and one static LiteLLM key from a Kubernetes Secret, and agents push directly. This knowingly breaks "gateways are the only door" until <a href="https://github.com/factory8/factory8/issues/1">#1</a>; hardening is tracked as issues, not designed up front</td></tr>
 <tr><td>Session logs kept</td><td>Every agent session's <code>*.jsonl</code> logs are collected into object storage per run and step, to restore a session (even after its sandbox died, or locally) and to analyse later</td></tr>
 <tr><td><span class="ok">resolved</span> Build, don't reuse</td><td>Optio and SuperPlane were tested and rejected: no per-project agent, no custom provider for Claude Code, no microVMs, UI-driven, and neither got a task through</td></tr>
 <tr><td>Deferred to Phase 4</td><td>AuthN/RBAC (identities recorded, roles not enforced), read-only package egress, secret-free agent CI, outside-reporter intake controls</td></tr></table>
@@ -94,7 +96,7 @@ code{background:#334155;padding:1px 6px;border-radius:4px}
 <h2>Non-negotiables</h2>
 <div class="grid">
 <div class="card"><b>Default-deny network.</b> Sandbox reaches only gateways, the egress proxy and presigned storage URLs; never Temporal, the k8s API or other sandboxes. Inbound only from workers to the adapter.</div>
-<div class="card"><b>No standing credentials.</b> LLM keys in the LLM gateway; tokens minted per step, revoked on delete or suspend, never on a PVC.</div>
+<div class="card"><b>No standing credentials.</b> LLM keys in the LLM gateway; tokens minted per step, revoked on delete or suspend, never on a PVC. <i>POC exception: <a href="https://github.com/factory8/factory8/issues/1">#1</a>.</i></div>
 <div class="card"><b>Everything attributable.</b> Forge history, <code>Factory8-Run:</code> commit trailers, gateway logs; retention policy defined.</div>
 <div class="card"><b>Everything in git:</b> workflows, agent profiles, policy bundles, sandbox templates, infra (Nix).</div>
 </div>

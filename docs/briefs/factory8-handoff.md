@@ -30,19 +30,25 @@ Read this first, then `docs/PRD.md`. These are the author's notes for Factory8, 
   - The adapter is a daemon inside the sandbox. A worker activity starts the step and long-polls its events, which become the heartbeats.
   - Tokens arrive only in the request.
   - Hooks run only inside the adapter, never as a channel to Temporal.
-- **Questions (SBX-11, A15):**
-  - The agent uses its CLI's native question tool, and an adapter hook catches it (Claude Code: PreToolUse on `AskUserQuestion`, plus a Stop hook that enforces the handoff note).
-  - An `f8-ask` command is the fallback for CLIs without hooks.
-  - Verify that `AskUserQuestion` exists in `claude -p`.
+- **Questions (SBX-11, A15):** the agent runs `f8-ask "<question>"`, which works the same for every CLI. The user had preferred the native tool plus a hook, but headless Claude Code doesn't offer `AskUserQuestion` (tested).
 - **Prompt split:** the start-step activity renders the vendor-neutral task prompt from refs, and the adapter adds the protocol preamble.
 - **Keep Phase 0 minimal** (the user pushed back on over-engineering): trust the agent's `done`. `failed` carries plain reason text. The agent commits and pushes its own work.
 - **Session logs (AGT-11, new):** vendor `*.jsonl` files plus the adapter's event log go to object storage at every exit, so a session can be restored and analysed.
+- **LLM gateway = LiteLLM**, the user's existing instance on the pilot cluster. Temporal gets its own Postgres. LiteLLM can't proxy git: its pass-through re-encodes request bodies as JSON.
+- **POC first:**
+  - No git gateway. A GitHub token (`GH_TOKEN`) and one static LiteLLM key reach the sandbox from a Kubernetes Secret, and the agent pushes directly (spec §5).
+  - This is tracked as [#1](https://github.com/factory8/factory8/issues/1) (label `hardening`).
+  - **Don't ask hardening questions.** File them as `hardening` issues instead.
 
-## Next step
+## Next step: build M1, bottom-up
 
-Decide the **thinnest gateways for M1**, then start building M1:
-- **LLM gateway:** off-the-shelf (e.g. LiteLLM; a clone exists in `~/code/litellm`) or our own TypeScript proxy (PLT-8 allows off-the-shelf).
-- **Git gateway:** how pushes are limited to the run branch with no credential in the sandbox, using a GitHub App token.
+1. **Done on the host:** `adapter/` (`f8-adapter serve`, `f8-ask`) with tests (`npm test`, fake `claude`), and runs against real Claude Code 2.1.289 for push + trailer and for ask → answer → resume.
+   - **A15 was false:** headless mode has no `AskUserQuestion`, so `f8-ask` is the question mechanism and Phase 0 uses no vendor hooks.
+   - **Left:** run it against LiteLLM (A13). That needs LiteLLM's URL and a key from the user.
+2. Project image from the factory8 flake's dev shell + Claude Code + adapter (`nix build`). This proves A14.
+3. The user creates the GitHub token and the Kubernetes Secret.
+4. Temporal (own Postgres) + worker **in the cluster** (Kata pods can't be port-forwarded) + a one-step workflow: Kata `Sandbox` → start step → poll → draft PR.
+5. `f8 run <issue>` talks to Temporal directly, which makes the first dogfooded PR on factory8/factory8.
 
 ## Still open
 
@@ -55,7 +61,7 @@ Decide the **thinnest gateways for M1**, then start building M1:
   - A14: Nix dev shell → OCI image under Kata.
   - A15: `AskUserQuestion` in `-p` mode.
   - The other items in spec §1.8.
-- **The `factory8` org is on GitHub's free plan.** Branch protection and rulesets aren't available on private repos there. Agents are kept off `master` by the git gateway, but code-owner approval (DEP-2) can't be enforced by GitHub until the repo goes public or the org upgrades.
+- **The `factory8` org is on GitHub's free plan.** Branch protection isn't available on private repos there, so nothing stops an agent's token from pushing to `master` (#1), and code-owner approval (DEP-2) can't be enforced.
 
 ## Not yet thought through (raise when relevant)
 
@@ -68,6 +74,7 @@ Decide the **thinnest gateways for M1**, then start building M1:
 ## How to work with the user
 
 - **Grill style:** ask one question at a time, with a guess attached, and push back when warranted. Keep proposals minimal; the user dislikes over-engineering.
+- **POC first.** Prefer extending existing tools over writing new services. Skip security and hardening questions: take the direct path and file a `hardening` issue.
 - **After any PRD change:**
   1. Add a §0 row.
   2. Update `prd.html` and `architecture.html`.

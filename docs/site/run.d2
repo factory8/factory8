@@ -13,7 +13,7 @@ c -> s: start
 w -> s: "3 start step: task + tokens\n(then poll events → heartbeats)"
 s -> g: "4 check out run branch,\nread intent / spec / plan"
 s."5 agent works\n(code, docker compose, tests)"
-s -> w: "6 needs_input (hook caught the question):\nquestion + handoff note"
+s -> w: "6 needs_input (agent ran f8-ask):\nquestion + handoff note"
 s -> o: "7 session logs (presigned URL)"
 w -> c: "8 suspend: pod gone, PVC kept,\ntokens revoked"
 w -> f: "9 post question on issue / PR"
