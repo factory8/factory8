@@ -4,7 +4,7 @@ Read this first, then `docs/PRD.md`. These are the author's notes for Factory8, 
 
 ## Where we are
 
-- **Repo:** `github.com/factory8/factory8` (private, branch `main`). The local clone is still in `~/code/softwory`; the directory hasn't been renamed. Code doesn't exist yet. `AGENTS.md` (with `CLAUDE.md` as a symlink to it) and a `flake.nix` dev shell (Node 24, Temporal CLI, kubectl, d2, python3) are in place.
+- **Repo:** `github.com/factory8/factory8` (private, default branch `master`, which is the user's preference; never `main`). The local clone is still in `~/code/softwory`; the directory hasn't been renamed. Code doesn't exist yet. `AGENTS.md` (with `CLAUDE.md` as a symlink to it) and a `flake.nix` dev shell (Node 24, Temporal CLI, kubectl, d2, python3) are in place.
 - **`docs/PRD.md` is DRAFT v0.6.** §0 logs every change with requirement IDs. IDs are stable, and ART-5 is the only retired one.
 - **`docs/specs/phase0-contracts.md`:**
   - §1 (agent adapter) and §2 (project detection) are drafted.
@@ -55,7 +55,7 @@ Decide the **thinnest gateways for M1**, then start building M1:
   - A14: Nix dev shell → OCI image under Kata.
   - A15: `AskUserQuestion` in `-p` mode.
   - The other items in spec §1.8.
-- **The `factory8` org is on GitHub's free plan.** Branch protection and rulesets aren't available on private repos there. Agents are kept off `main` by the git gateway, but code-owner approval (DEP-2) can't be enforced by GitHub until the repo goes public or the org upgrades.
+- **The `factory8` org is on GitHub's free plan.** Branch protection and rulesets aren't available on private repos there. Agents are kept off `master` by the git gateway, but code-owner approval (DEP-2) can't be enforced by GitHub until the repo goes public or the org upgrades.
 
 ## Not yet thought through (raise when relevant)
 
