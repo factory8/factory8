@@ -17,7 +17,7 @@ code{background:#334155;padding:1px 6px;border-radius:4px}
 .warn{border-left:4px solid var(--amb);background:var(--card);padding:10px 14px;border-radius:0 12px 12px 0}
 .cap{color:var(--mut);font-size:.9rem}
 </style></head><body><main>
-<p class="cap"><a href="index.html">← SDLC essentials</a> · <a href="architecture.html">Architecture (draft)</a> · PRD <b>v0.5</b> DRAFT · full text: <a href="PRD.md">PRD.md</a></p>
+<p class="cap"><a href="index.html">← SDLC essentials</a> · <a href="architecture.html">Architecture (draft)</a> · PRD <b>v0.6</b> DRAFT · full text: <a href="PRD.md">PRD.md</a></p>
 <h1>Factory8 — PRD at a glance</h1>
 <p class="lead">Intents arrive through one <b>intake</b> contract (first: the project's GitHub issues); agents triage them and a human accepts them. <b>Temporal workflows</b>, written as TypeScript code, drive each run. Artifacts live in <b>git</b>, evidence in <b>object storage</b>. <b>Any agent CLI</b> runs in a disposable <b>Kata microVM</b> that reaches the world only through <b>gateways</b>, and a run waiting on a human holds no compute. The run's <b>route</b> decides how many human gates it gets. Each repo declares its <b>project agent</b>, so every session starts ready to work on that project. Built for engineers who already run agents in the terminal: the interface is the <b>forge and the <code>f8</code> CLI</b>, with no new UI to learn.</p>
 <p class="cap">Stage: personal prototype on the author's own project; target: a single-tenant offering installed per client.</p>
@@ -32,10 +32,13 @@ code{background:#334155;padding:1px 6px;border-radius:4px}
 <tr><td><span class="ok">resolved</span> Tenancy</td><td>One installation per client, namespace per project; nothing crosses installations (OQ-17)</td></tr>
 <tr><td><span class="ok">resolved</span> Stack</td><td>TypeScript on Node LTS for all Factory8 code; Bun set aside because Temporal's TS SDK supports it only experimentally (OQ-19)</td></tr>
 <tr><td>Terminal and forge first</td><td>Every human action works from the forge and the <code>f8</code> CLI; no web UI until a need is proven</td></tr>
-<tr><td>Project agent</td><td>Built from the repo's own <code>devcontainer.json</code> (environment) and <code>AGENTS.md</code> (context), plus a small <code>.factory8/project.yaml</code>: commands, tools (skills, MCP servers, CLIs), default profiles, route rules, egress and secret requests. Image built from the default branch only, never in a sandbox. Checked before use; works the same in an engineer's terminal</td></tr>
-<tr><td><span class="ok">resolved</span> Environment providers</td><td>Dev Containers first; Flox, a Nix flake or a Dockerfile can plug in later behind the same interface (OQ-22)</td></tr>
+<tr><td>Project agent</td><td>Built from the repo's own Nix dev shell (environment) and <code>AGENTS.md</code> (context), plus, from Phase 1, a small <code>.factory8/project.yaml</code>: commands, tools (skills, MCP servers, CLIs), default profiles, route rules, egress and secret requests. Image built from the default branch only, never in a sandbox. Checked before use; works the same in an engineer's terminal</td></tr>
+<tr><td><span class="ok">resolved</span> Environment providers</td><td>Nix dev shell first (<code>flake.nix</code> or <code>shell.nix</code>; the author's projects are all Nix); Dev Containers before client installs (Phase 4); Flox or a Dockerfile can plug in later behind the same interface (OQ-22). Pilot: <code>librepod/marketplace</code></td></tr>
 <tr><td>Custom LLM providers</td><td>Each vendor CLI is pointed at the LLM gateway (e.g. <code>ANTHROPIC_BASE_URL</code>); the gateway routes to any configured provider, including self-hosted ones</td></tr>
 <tr><td>No silent stalls</td><td>Steps heartbeat with live progress; a stalled step is retried, then escalated</td></tr>
+<tr><td>Adapter in the sandbox</td><td>A small daemon inside the sandbox runs the agent CLI; workers start steps through it and poll its events for heartbeats, so a worker restart never stops an agent. The agent asks questions with its CLI's own tool, caught by an adapter hook</td></tr>
+<tr><td><span class="ok">resolved</span> Dogfooding</td><td>Factory8 is developed with Factory8 from M1; <code>librepod/marketplace</code> is the pilot alongside it. Phase 0 lands as usable increments: M1 issue → sandboxed agent → draft PR · M2 live progress, session logs · M3 questions with suspend/resume · M4 recovery (OQ-3)</td></tr>
+<tr><td>Session logs kept</td><td>Every agent session's <code>*.jsonl</code> logs are collected into object storage per run and step, to restore a session (even after its sandbox died, or locally) and to analyse later</td></tr>
 <tr><td><span class="ok">resolved</span> Build, don't reuse</td><td>Optio and SuperPlane were tested and rejected: no per-project agent, no custom provider for Claude Code, no microVMs, UI-driven, and neither got a task through</td></tr>
 <tr><td>Deferred to Phase 4</td><td>AuthN/RBAC (identities recorded, roles not enforced), read-only package egress, secret-free agent CI, outside-reporter intake controls</td></tr></table>
 
@@ -51,6 +54,7 @@ code{background:#334155;padding:1px 6px;border-radius:4px}
 <div class="card"><b>G8 Durable runs.</b> Failures retry or resume without re-prompting; waiting costs no compute.</div>
 <div class="card"><b>G9 Terminal and forge first.</b> Engineers drive Factory8 from the forge and their terminal; no new UI to learn.</div>
 <div class="card"><b>G10 Project-ready agents.</b> An agent starts with the project's dependencies, tools and context in place.</div>
+<div class="card"><b>G11 Dogfooding.</b> Factory8 is developed with Factory8 from M1.</div>
 </div>
 
 <h2>Routes: how many humans a run needs</h2>
@@ -81,15 +85,15 @@ code{background:#334155;padding:1px 6px;border-radius:4px}
 <h2>Rollout in 5 phases</h2>
 <div class="fig"><img src="phases.svg" alt="Phases"></div>
 <table style="margin-top:12px"><tr><th>Phase</th><th>Key requirements (IDs in PRD.md)</th></tr>
-<tr><td>0 Platform skeleton</td><td>Temporal runs a TypeScript workflow (ORC-1..5, PLT-8) · git + object storage (ART-1..4, 12) · sandbox, network policy, egress proxy, per-run tokens (SBX-1..7) · suspend/resume (SBX-11..13, 15) · project agent for the pilot repo (PRJ-1..3, devcontainer provider PRJ-8, SBX-16) · adapter contract + Claude Code, custom LLM provider (AGT-1, 3, 6, 9, 10) · no silent stalls (ORC-13) · <code>f8</code> CLI (PLT-5)</td></tr>
+<tr><td>0 Platform skeleton, dogfooded</td><td><b>M1</b> <code>f8 run &lt;issue&gt;</code> → sandbox from the repo's Nix shell → Claude Code → draft PR · <b>M2</b> progress + session logs · <b>M3</b> questions, suspend/resume · <b>M4</b> recovery; each used on Factory8's own repo as it lands. Covers: Temporal runs a TypeScript workflow (ORC-1..5, PLT-8) · git + object storage (ART-1..4, 12) · sandbox, network policy, egress proxy, per-run tokens (SBX-1..7) · suspend/resume (SBX-11..13, 15) · project agent for the pilot repo (PRJ-1..3, Nix provider PRJ-8, SBX-16) · adapter contract + Claude Code, custom LLM provider, session logs kept (AGT-1, 3, 6, 9, 10, 11) · no silent stalls (ORC-13) · <code>f8</code> CLI (PLT-5)</td></tr>
 <tr><td>1 Guided loop</td><td>GitHub issue intake + triage (INT-1..9, PLN) · spec.md with flagged concerns (DSN) · plan before code (BLD-1) · review workflow (DEP-1/2) · gates as signals + gateway policy (DEP-5/11) · route recorded (ORC-11) · project agent builds and checks (SBX-17, PRJ-4/5) · Codex as 2nd vendor (AGT-2)</td></tr>
 <tr><td>2 Routine route + delivery</td><td>Routine route enforced with escalation and pattern catalog (ORC-12, BLD-3) · eval suite gates config (TST-6) · conformance suite + pi as 3rd vendor (AGT-2/7) · deploy gateway + autonomy tiers + rehearsed rollback (DEP-8..10) · per-project warm pools and caches (SBX-18), project agent local parity and <code>f8 project init</code> (PRJ-6/7), parallel runs</td></tr>
 <tr><td>3 Closed loop</td><td>Deterministic detection + σ tiers (MNT-1/2) · incidents enter through intake (MNT-3/4) · confidence gate with independent verifier (MNT-6) · incident → eval (TST-7)</td></tr>
-<tr><td>4 Client-ready</td><td>Packaged install (TEN-1/2/4) · AuthN/RBAC (PLT-7) · read-only package egress (SBX-14) · secret-free agent CI (BLD-8) · outside-reporter intake controls (INT-10)</td></tr></table>
+<tr><td>4 Client-ready</td><td>Packaged install (TEN-1/2/4) · Dev Containers provider (PRJ-8) · AuthN/RBAC (PLT-7) · read-only package egress (SBX-14) · secret-free agent CI (BLD-8) · outside-reporter intake controls (INT-10)</td></tr></table>
 
 <h2>Non-negotiables</h2>
 <div class="grid">
-<div class="card"><b>Default-deny network.</b> Sandbox reaches only gateways, the egress proxy and presigned storage URLs; never Temporal, the k8s API or other sandboxes.</div>
+<div class="card"><b>Default-deny network.</b> Sandbox reaches only gateways, the egress proxy and presigned storage URLs; never Temporal, the k8s API or other sandboxes. Inbound only from workers to the adapter.</div>
 <div class="card"><b>No standing credentials.</b> LLM keys in the LLM gateway; tokens minted per step, revoked on delete or suspend, never on a PVC.</div>
 <div class="card"><b>Everything attributable.</b> Forge history, <code>Factory8-Run:</code> commit trailers, gateway logs; retention policy defined.</div>
 <div class="card"><b>Everything in git:</b> workflows, agent profiles, policy bundles, sandbox templates, infra (Nix).</div>
@@ -113,7 +117,7 @@ code{background:#334155;padding:1px 6px;border-radius:4px}
 <h2>Decisions still open</h2>
 <div class="warn">
 <span class="tag">OQ-15</span> Which forge for client installs?<br>
-<span class="tag">OQ-16</span> Exact artifact formats, intake envelope and adapter contracts.<br>
-<span class="tag">OQ-13</span> Sandbox start, resume and concurrency targets. &nbsp; <span class="tag">OQ-3</span> Is "platform skeleton first" the right order?</div>
-<p class="cap">Also open: OQ-2 (first policy bundle), 6, 8, 9, 10, 11, 12 — see <a href="PRD.md">PRD.md</a> §14. Resolved: OQ-1, 4, 5, 7, 14, 17, 18, 19, 20, 21, 22.</p>
+<span class="tag">OQ-16</span> Exact artifact formats and intake envelope (adapter contract drafted in <code>specs/phase0-contracts.md</code>).<br>
+<span class="tag">OQ-13</span> Sandbox start, resume and concurrency targets. </div>
+<p class="cap">Also open: OQ-2 (first policy bundle), 6, 8, 9, 10, 11, 12 — see <a href="PRD.md">PRD.md</a> §14. Resolved: OQ-1, 3, 4, 5, 7, 14, 17, 18, 19, 20, 21, 22.</p>
 </main></body></html>
