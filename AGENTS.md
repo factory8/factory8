@@ -15,6 +15,7 @@ Factory8 is a self-hosted AI-native software factory. Temporal workflows, writte
 
 - `npm test`: tests (`node --test`).
 - `npm run typecheck`: `tsc`, no emit.
+- `nix build .#sandbox-image`: the sandbox image (M1 design D3). The result is a script that streams the image; pipe it to `docker load` or `k3s ctr images import -`.
 
 ## Layout
 
