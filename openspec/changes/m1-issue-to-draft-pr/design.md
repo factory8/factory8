@@ -109,6 +109,11 @@ Diagram: `docs/site/m1-run.svg` (source `m1-run.d2`).
   - Node, to run the adapter;
   - the adapter and `f8-ask`.
 - **Known loss:** a dev shell's `shellHook` isn't carried into the image. Accept that for M1.
+- **Built (task 1.3, 2026-10-24):** `flake.nix` has `lib.sandboxImage { pkgs, shell, name }` and `packages.<system>.sandbox-image` (`factory8-sandbox:<Nix hash>`, 1.2 GB). Learned while building it:
+  - claude-code is unfree in nixpkgs, so the flake allows that one package (`allowUnfreePredicate`).
+  - The image also gets stdenv's base tools (`stdenv.initialPath`: coreutils, grep, sed, find, tar …), which `nix develop` puts on the PATH but a shell's package list doesn't name. It also gets `/bin/sh`, CA certificates, an `/etc/passwd` with root, and `/tmp`.
+  - The adapter is a `node main.ts` wrapper; it has no dependencies to install.
+  - Under docker, a real step (Claude Code 2.1.303, haiku) cloned a local bare repo, pushed `f8/<runId>` with the `Factory8-Run` trailer, and left its session file under `/f8/home/.claude/projects`. Claude Code also added its own `Co-Authored-By` trailer and amended its commit to do so.
 - **Where it's defined:** the factory8 flake exposes a function such as `lib.sandboxImage { pkgs, shell }`, so the same function later builds the image for `librepod/marketplace`, whose environment is a `shell.nix`.
 - **Delivery:** built by hand on the laptop and loaded onto the single node with `k3s ctr images import`. No registry yet; the SBX-17 build workflow is Phase 1.
 - **Tag:** the image's Nix store hash, with `imagePullPolicy: Never` on the pod. Each build gets a new tag, so an image in use never changes under a run. That's the digest pinning borrowed from ax, without a registry; `F8_IMAGES` (D2) names the tag.

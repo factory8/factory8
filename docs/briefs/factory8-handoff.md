@@ -54,6 +54,8 @@ Read this first, then `docs/PRD.md`. These are the author's notes for Factory8, 
 - **Tests:** `npm test` runs them against a fake `claude` and a local bare repo. `npm run typecheck` runs `tsc` with no emit.
 - **Real runs:** on the host against Claude Code 2.1.289, it pushed to the run branch with the `Factory8-Run` trailer, and completed f8-ask → `needs_input` → answer → resume in the same session.
 
+Task 1.3 (2026-10-24): `nix build .#sandbox-image` builds the project image from the dev shell (`lib.sandboxImage` in `flake.nix`), and a real step ran inside it under docker. See D3 in M1's `design.md`.
+
 ## Next step: the M1 build tasks
 
 Task 1.D is done (2026-10-23): D1–D8 in M1's `design.md` are all decided with the user, and the specs and tasks match them. In short:
@@ -68,7 +70,7 @@ Task 1.D is done (2026-10-23): D1–D8 in M1's `design.md` are all decided with 
 
 **Start with** the tasks that need nothing else (see M1's `tasks.md`):
 - 1.1 cluster setup (*user* + me) and 1.2 LiteLLM check (*user*), which need the user at the cluster;
-- 1.3 the project image and 1.10 the adapter's process-group cancel, which need no cluster.
+- 1.10 the adapter's process-group cancel, which needs no cluster (1.3 is done).
 
 **Read first, in order:**
 1. `AGENTS.md`.
