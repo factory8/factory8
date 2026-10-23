@@ -3,10 +3,3 @@ node_modules/
 result
 # third-party source documents, kept locally only
 AI_Native_SDLC_Playbook_*
-
-# Beads / Dolt files (added by bd init)
-.dolt/
-*.db
-.beads-credential-key
-.beads/proxieddb/
-*.gate.lock*
