@@ -5,9 +5,9 @@ Factory8 is a self-hosted AI-native software factory. Temporal workflows, writte
 ## Read first
 
 - `docs/PRD.md`: the requirements. It's a draft, requirement IDs are stable, and §0 logs every change.
-- `docs/specs/phase0-contracts.md`: the Phase 0 contracts (agent adapter, project detection, …).
 - `docs/briefs/factory8-handoff.md`: the latest session handoff.
-- `docs/plans/poc-wbs.md`: the POC plan: tasks, their order, and what "done" means for each. No task tracker has been chosen yet, so this file is the tracker.
+- `docs/plans/poc.md`: the POC plan: the exit criterion, the milestone order, and what's not in the POC.
+- `openspec/`: our specs and work, tracked with OpenSpec. `openspec/specs/` describes what's built. `openspec/changes/` holds one change per milestone: proposal, delta specs, design, and `tasks.md`, which is the task tracker. Run `openspec list`, or use the `/openspec-*` skills.
 
 ## Environment
 
@@ -18,8 +18,9 @@ Factory8 is a self-hosted AI-native software factory. Temporal workflows, writte
 
 ## Layout
 
-- `docs/`: the PRD, specs, briefs, and `site/` (HTML summaries and D2 diagrams).
-- `adapter/`: `f8-adapter`, the daemon inside each sandbox that runs the agent CLI (spec §1), and `f8-ask`.
+- `docs/`: the PRD, the POC plan, briefs, and `site/` (HTML summaries and D2 diagrams).
+- `openspec/`: specs and changes (see "Read first").
+- `adapter/`: `f8-adapter`, the daemon inside each sandbox that runs the agent CLI (`agent-adapter` spec), and `f8-ask`.
 - Coming with M1: `worker/` (Temporal) and `cli/` (`f8`), as more npm workspaces.
 
 ## When the PRD changes
@@ -35,6 +36,7 @@ To serve the site: `python3 -m http.server 8080 --directory docs/site`.
 ## Rules
 
 - Phase 0: build the smallest thing that works. No speculative config, options or abstractions.
-- POC first: don't design security hardening into the POC. List each gap under "Not in the POC" in `docs/plans/poc-wbs.md` (#1 is on GitHub).
+- POC first: don't design security hardening into the POC. List each gap under "Not in the POC" in `docs/plans/poc.md` (#1 is on GitHub).
 - Never commit credentials or client data.
 - Don't use beads (`bd`): it was removed from this repo on 2026-10-23.
+- OpenSpec is how we track our own work, not part of the product. It never changes the PRD on its own.

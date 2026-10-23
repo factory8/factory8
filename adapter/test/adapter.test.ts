@@ -2,7 +2,6 @@ import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
-import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -22,16 +21,8 @@ echo x > f && git add f && git commit -qm work && git push -q origin HEAD
 echo '{"type":"result","result":"did it"}'
 `, { mode: 0o755 });
 
-const uploads = new Map<string, number>();
-const logs = createServer(async (q, s) => {
-  let n = 0;
-  for await (const c of q) n += c.length;
-  uploads.set(q.url!, n);
-  s.end();
-}).listen(17079);
-
 const adapters: ChildProcess[] = [];
-after(() => { adapters.forEach(a => a.kill()); logs.close(); });
+after(() => { adapters.forEach(a => a.kill()); });
 
 async function adapter(port: number) {
   const root = mkdtempSync(join(tmp, 'f8-'));
@@ -61,17 +52,15 @@ const step = (runId: string, prompt: string) => ({
   stepId: `${runId}.build.1`, runId, prompt,
   profile: { vendor: 'claude-code', model: 'haiku' },
   repo: { url: `${tmp}/origin.git`, branch: `f8/${runId}` },
-  logsUploadUrl: `http://localhost:17079/logs/${runId}.1`,
 });
 
-test('a step runs, pushes with the run trailer, and uploads its logs', async () => {
+test('a step runs and pushes with the run trailer', async () => {
   const a = await adapter(17071);
   assert.equal(await a.post('/steps', step('run1', 'do the work')), 202);
   const events = await a.untilExit('run1.build.1');
   assert.deepEqual(events.map(e => [e.type, e.text ?? e.status]), [['progress', 'Bash: git commit -m work'], ['exit', 'done']]);
   assert.equal(events[1].summary, 'did it');
   assert.match(sh('git --git-dir origin.git log -1 --format=%B f8/run1'), /^Factory8-Run: run1$/m);
-  assert.ok(uploads.get('/logs/run1.1')! > 0);
   assert.equal(await a.post('/steps', step('run1', 'do the work')), 202, 'repeated start is a no-op');
 });
 
@@ -80,8 +69,7 @@ test('a question exits needs_input and the answer resumes the session', async ()
   await a.post('/steps', step('run2', 'ASK first'));
   const [asked] = await a.untilExit('run2.build.1');
   assert.deepEqual([asked.status, asked.question], ['needs_input', 'Which DB?']);
-  assert.equal(await a.post('/steps/run2.build.1/answer', { answer: 'Postgres', logsUploadUrl: 'http://localhost:17079/logs/run2.2' }), 202);
+  assert.equal(await a.post('/steps/run2.build.1/answer', { answer: 'Postgres' }), 202);
   const [done] = await a.untilExit('run2.build.1', asked.seq);
   assert.deepEqual([done.status, done.summary], ['done', 'resumed with Postgres']);
-  assert.ok(uploads.get('/logs/run2.2')! > 0);
 });

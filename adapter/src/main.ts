@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// f8-adapter: runs one agent step at a time inside the sandbox (docs/specs/phase0-contracts.md §1).
+// f8-adapter: runs one agent step at a time inside the sandbox (openspec/specs/agent-adapter/spec.md).
 import { createServer } from 'node:http';
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -12,9 +12,8 @@ interface StepRequest {
   prompt: string;
   profile: { vendor: 'claude-code'; model: string; effort?: string };
   repo: { url: string; branch: string };
-  logsUploadUrl: string;
 }
-interface AnswerRequest { answer: string; logsUploadUrl: string }
+interface AnswerRequest { answer: string }
 type EventBody =
   | { type: 'progress'; text: string }
   | { type: 'exit'; status: 'done'; summary: string }
@@ -35,7 +34,6 @@ let req: StepRequest | undefined = read('request.json') && JSON.parse(read('requ
 const events: StepEvent[] = (read('events.jsonl') ?? '').split('\n').filter(Boolean).map(l => JSON.parse(l));
 let child: ChildProcess | undefined;
 let cancelled = false;
-let logsUrl = req?.logsUploadUrl ?? '';
 let wake: (() => void)[] = [];
 
 function emit(stepId: string, body: EventBody) {
@@ -51,7 +49,7 @@ Finish with a short summary of what you did.`;
 
 async function checkout(r: StepRequest) {
   if (!existsSync(`${WORK}/.git`)) {
-    // shortcut: the token comes from the pod's Secret (spec §5), remove with #1.
+    // shortcut: the token comes from the pod's Secret (sandbox spec), remove with #1.
     const cred = '!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f';
     await exec('git', ['clone', '-c', `credential.helper=${cred}`, '-c', 'user.name=Factory8',
       '-c', 'user.email=factory8@users.noreply.github.com', r.repo.url, WORK]);
@@ -72,23 +70,12 @@ function describe(tool: { name: string; input?: Record<string, unknown> }) {
   return arg ? `${tool.name}: ${String(arg).split('\n')[0].slice(0, 200)}` : tool.name;
 }
 
-async function uploadLogs() {
-  try {
-    const dirs = ['state', 'home/.claude/projects'].filter(d => existsSync(`${ROOT}/${d}`));
-    const { stdout } = await exec('tar', ['-czf', '-', '-C', ROOT, ...dirs], { encoding: 'buffer', maxBuffer: 2 ** 31 });
-    const res = await fetch(logsUrl, { method: 'PUT', body: stdout });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  } catch (e) {
-    console.error('log upload failed, files stay on the PVC:', e); // AGT-11
-  }
-}
-
 // Runs the CLI once. `fallback` runs instead when a --resume never got its session started.
 function run(r: StepRequest, args: string[], prompt: string, fallback?: () => void) {
-  const c = spawn('claude', ['-p', '--output-format', 'stream-json', '--verbose', '--permission-mode', 'bypassPermissions',
+  const c = spawn('claude', ['-p', '--output-format', 'stream-json', '--verbose', '--dangerously-skip-permissions',
     '--model', r.profile.model, ...(r.profile.effort ? ['--effort', r.profile.effort] : []), ...args], {
     cwd: WORK,
-    env: { ...process.env, HOME, IS_SANDBOX: '1' }, // IS_SANDBOX lets bypassPermissions run as root
+    env: { ...process.env, HOME, IS_SANDBOX: '1' }, // IS_SANDBOX lets --dangerously-skip-permissions run as root
   });
   child = c;
   c.stdin.end(prompt);
@@ -106,10 +93,9 @@ function run(r: StepRequest, args: string[], prompt: string, fallback?: () => vo
       summary = m.result ?? '';
     }
   });
-  c.on('close', async code => {
+  c.on('close', code => {
     child = undefined;
     if (code !== 0 && !started && fallback && !cancelled) return fallback();
-    await uploadLogs();
     const question = read('question.md')?.trim();
     if (cancelled) emit(r.stepId, { type: 'exit', status: 'failed', reason: 'cancelled' });
     else if (question) emit(r.stepId, { type: 'exit', status: 'needs_input', question });
@@ -144,13 +130,12 @@ const server = createServer(async (q, s) => {
 
     if (!id && q.method === 'POST') {
       const r: StepRequest = await body(q);
-      if (!r.stepId || !r.runId || !r.prompt || !r.repo?.url || !r.repo?.branch || !r.profile?.model || !r.logsUploadUrl) {
+      if (!r.stepId || !r.runId || !r.prompt || !r.repo?.url || !r.repo?.branch || !r.profile?.model) {
         return send(400, { error: 'incomplete StepRequest' });
       }
       if (req?.stepId === r.stepId) return send(202);
       if (child) return send(409, { error: `step ${req?.stepId} is running` });
       req = r;
-      logsUrl = r.logsUploadUrl;
       cancelled = false;
       writeFileSync(`${STATE}/request.json`, JSON.stringify(r));
       send(202);
@@ -176,7 +161,6 @@ const server = createServer(async (q, s) => {
       if (child) return send(202); // already resumed
       const last = events.findLast(e => e.stepId === id);
       if (last?.type !== 'exit' || last.status !== 'needs_input') return send(409, { error: 'step is not waiting for an answer' });
-      logsUrl = a.logsUploadUrl;
       rmSync(`${STATE}/question.md`, { force: true });
       send(202);
       const handoff = read('handoff.md') ?? '(none)';

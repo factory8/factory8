@@ -13,15 +13,18 @@ Read this first, then `docs/PRD.md`. These are the author's notes for Factory8, 
   - `flake.nix`: a dev shell with Node 24, the temporal CLI, kubectl, d2 and python3.
   - `adapter/`: the only code so far (see "Done" below).
 - **`docs/PRD.md` is DRAFT v0.6.** §0 logs every change with requirement IDs. IDs are stable; ART-5 is the only retired one.
-- **`docs/specs/phase0-contracts.md`:** §1 (agent adapter), §2 (project detection) and §5 (POC credentials) are drafted. §3 (run branch layout, front-matter, trailer) and §4 (`IntentEnvelope`) are still todo.
-- **`docs/plans/poc-wbs.md`:** the POC plan. It lists the tasks, what each one waits on, and what "done" means. It is the task tracker until the user picks a tool.
-- **`docs/design/m1.md`:** M1's technical design. It holds proposals only, not yet agreed; agreeing them is the next task.
+- **OpenSpec tracks our specs and tasks (since 2026-10-23).** It's our tooling, not part of the product. `openspec list` shows progress, and the `/openspec-*` skills drive the work.
+  - `openspec/specs/agent-adapter`: the adapter as built (the old contracts §1).
+  - `openspec/changes/m1-issue-to-draft-pr`: proposal; delta specs `project-detection` (old §2), `sandbox` (with the POC credentials, old §5), `run-workflow` and `f8-cli`; `design.md` with D1–D8, still proposals only, which agreeing is the next task; and `tasks.md`.
+  - `m2-progress-and-logs`, `m3-questions-suspend-resume`, `m4-recovery`: a proposal and tasks each. Their specs and design are written when each milestone starts.
+  - The old §3 (run branch layout, front-matter, trailer) and §4 (`IntentEnvelope`) aren't written yet.
+- **`docs/plans/poc.md`:** the POC exit criterion, the milestone order, and "Not in the POC".
 - **`docs/site/`:** `prd.html` and `architecture.html` summarize the PRD; the D2 diagrams `arch.d2` (ELK layout), `run.d2` and `phases.d2` illustrate it.
   - `PRD.md` in that directory is a symlink.
   - Re-render a diagram with `d2 x.d2 x.svg`. For PNG previews, run `nix run nixpkgs#librsvg -- -w 1400 x.svg -o x.png`.
   - `index.html` and `loop`/`governance`/`maintain.d2` are the playbook digest, not the PRD.
 - **Third-party originals stay local only.** `AI_Native_SDLC_Playbook_designv2.md/.pdf` (by Anthropic) are gitignored.
-- **Beads was removed on 2026-10-23.** Its plan content is now in `docs/plans/poc-wbs.md` and `docs/design/m1.md`. Factory8 itself doesn't use beads either; it was dropped from the product in PRD v0.3. Don't bring it back.
+- **Beads was removed on 2026-10-23.** Its plan content now lives in OpenSpec. Factory8 itself doesn't use beads either; it was dropped from the product in PRD v0.3. Don't bring it back.
 
 ## Decisions so far (PRD v0.6)
 
@@ -37,12 +40,13 @@ Read this first, then `docs/PRD.md`. These are the author's notes for Factory8, 
 - **Questions (SBX-11, A15):** the agent runs `f8-ask "<question>"`, the same for every CLI. The user had preferred Claude Code's native tool plus a hook, but headless Claude Code doesn't offer `AskUserQuestion` (tested).
 - **Prompt split:** the start-step activity renders the vendor-neutral task prompt; the adapter adds the protocol preamble.
 - **Keep Phase 0 minimal:** trust the agent's `done`; `failed` carries plain reason text; the agent commits and pushes its own work.
-- **Session logs (AGT-11):** the vendor `*.jsonl` files and the adapter's event log go to object storage at every exit.
-- **LLM gateway = LiteLLM:** the user's existing instance on the pilot cluster. Temporal gets its own Postgres.
+- **Session logs (AGT-11):** the vendor `*.jsonl` files and the adapter's event log stay on the run's PVC, which outlives the sandbox. Nothing is uploaded (changed 2026-10-23; Claude Code resumes from the file alone).
+- **LLM gateway = LiteLLM:** a LibrePod marketplace app the user installs on the pilot cluster from its UI (task 1.2). Temporal gets its own Postgres.
+- **Sandboxes are plain Kata pods (2026-10-23):** agent-sandbox is dropped. The worker creates a PVC and a pod per run, both named `f8-<runId>`. Suspend deletes the pod and keeps the PVC (M1 design D2; PRD SBX-1).
 - **POC first:**
-  - No git gateway. A GitHub token (`GH_TOKEN`) and one static LiteLLM key reach the sandbox from a Kubernetes Secret, and the agent pushes directly (spec §5).
+  - No git gateway. A GitHub token (`GH_TOKEN`) and one static LiteLLM key reach the sandbox from a Kubernetes Secret, and the agent pushes directly (`sandbox` spec in the M1 change).
   - This is tracked as [#1](https://github.com/factory8/factory8/issues/1) (label `hardening`).
-  - **Don't ask hardening questions.** Add the gap to "Not in the POC" in `docs/plans/poc-wbs.md`.
+  - **Don't ask hardening questions.** Add the gap to "Not in the POC" in `docs/plans/poc.md`.
 
 ## Done
 
@@ -50,45 +54,39 @@ Read this first, then `docs/PRD.md`. These are the author's notes for Factory8, 
 - **Tests:** `npm test` runs them against a fake `claude` and a local bare repo. `npm run typecheck` runs `tsc` with no emit.
 - **Real runs:** on the host against Claude Code 2.1.289, it pushed to the run branch with the `Factory8-Run` trailer, and completed f8-ask → `needs_input` → answer → resume in the same session.
 
-## Next step: task 1.D, the M1 technical design
+## Next step: the M1 build tasks
 
-**Goal:** turn the proposals in `docs/design/m1.md` (D1–D8) into agreed decisions. Don't write code in this task. It blocks the M1 build tasks 1.4–1.7 in the plan.
+Task 1.D is done (2026-10-23): D1–D8 in M1's `design.md` are all decided with the user, and the specs and tasks match them. In short:
+- D1: a dumb worker (sandbox lifecycle and adapter calls only); session logs stay on the PVC; the run ID is 6 random characters, not tied to the issue.
+- D2: a plain Kata pod and PVC per run, reached at the pod IP.
+- D3: the project image from the dev shell (`streamLayeredImage`), tagged with its Nix hash, imported onto the node.
+- D4: everything in `deploy/`; vendor charts; Postgres as a plain Deployment; Temporal; Kata through the kata-deploy 4.3.1 chart (an earlier NixOS spike's workarounds as the fallback); a Nix-built worker image.
+- D5: `f8 run <issue>` builds the repo URL from `origin`; Ctrl-C only detaches.
+- D6: the agent opens the draft PR.
+- D7: workspaces `adapter/`, `worker/` and `cli/`; workflow tests in Temporal's local mode.
+- D8: the worker's settings are `TEMPORAL_ADDRESS`, `F8_MODEL` and `F8_IMAGES`; the default profile is filled in by `startStep`.
+
+**Start with** the tasks that need nothing else (see M1's `tasks.md`):
+- 1.1 cluster setup (*user* + me) and 1.2 LiteLLM check (*user*), which need the user at the cluster;
+- 1.3 the project image and 1.10 the adapter's process-group cancel, which need no cluster.
 
 **Read first, in order:**
 1. `AGENTS.md`.
 2. This handoff.
-3. `docs/plans/poc-wbs.md`.
-4. `docs/design/m1.md`.
-5. Spec §1, §2 and §5.
+3. `docs/plans/poc.md`.
+4. The M1 change, `openspec/changes/m1-issue-to-draft-pr/`: its proposal, `design.md`, its specs and `tasks.md`.
+5. `openspec/specs/agent-adapter/spec.md`.
 6. PRD §7 and the Phase 0 row of §8.
 7. `adapter/src/main.ts`.
 
-**How to run the session:**
-- Go through D1–D8 one at a time. Each question comes with the proposal attached. Push back when warranted.
-- Keep it minimal, and don't ask hardening questions.
-- **Ask for these facts first,** because they change the decisions:
-  - Is the agent-sandbox controller installed on the pilot cluster? Which version, and does it have the SandboxTemplate/SandboxClaim extensions? How is a Sandbox reached: a Service, an FQDN or the pod IP?
-  - Is MinIO already running?
-  - Is there an image registry?
-  - What are LiteLLM's in-cluster URL and a key?
-  - Does the Temporal TypeScript SDK support Node 24?
-- **Tasks 1.1 (cluster check) and 1.2 (LiteLLM check)** can run during the design work, if the user prefers to get those facts by running them.
-
-**Done when:**
-- `docs/design/m1.md` records each decision: why, the rejected alternative, and anything still open.
-- The facts above are recorded in it.
-- The user has agreed to it.
-- Tasks 1.4–1.9 in the plan link to their sections, and their "done when" criteria match the design.
-- Any PRD or spec change has gone through the ritual in `AGENTS.md`.
-- This handoff is updated.
-- Commit and push only when the user asks.
+**How to work:** one task per session, with the user's review in between; tick it in `tasks.md` when its "done when" holds. Commit and push only when the user asks.
 
 ## Facts and gotchas
 
 - **The pilot cluster:** in repo docs, call it "the pilot cluster", never by its real name.
   - Single-node k3s on NixOS. The user proved the Kata RuntimeClass in an earlier POC.
   - An NFS provisioner provides PVCs.
-  - LiteLLM runs in its own namespace.
+  - Its only StorageClass, `nfs-client`, isn't the default, so PVCs must name it. It keeps a deleted PVC's files at `<namespace>/<pvc name>` on the share.
   - Port-forwarding to Kata pods doesn't work, so the worker must run in the cluster to reach the adapter.
 - **Toolchain:** Node runs the `.ts` files directly (type stripping), so only erasable syntax is allowed. The adapter has no runtime dependencies. TypeScript 7 is used for type checking only.
 - **Claude Code, verified:** a failed `--resume` exits with code 1 and emits no `init` event. The adapter treats that as the signal to fall back to a fresh session plus the handoff note.
@@ -105,7 +103,7 @@ Read this first, then `docs/PRD.md`. These are the author's notes for Factory8, 
   - A9: resume after the pod is replaced.
   - A13: Claude Code through LiteLLM.
   - A14: a Nix image under Kata.
-  - `bypassPermissions` as root with `IS_SANDBOX=1`.
+  - `--dangerously-skip-permissions` as root with `IS_SANDBOX=1` (always on, decided 2026-10-23).
 - **The `factory8` org is on GitHub's free plan.** Branch protection isn't available on private repos there, so nothing stops an agent's token from pushing to `master` (#1), and code-owner approval (DEP-2) can't be enforced.
 
 ## Not yet thought through (raise when relevant)

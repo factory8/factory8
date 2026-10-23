@@ -1,4 +1,4 @@
 #!/bin/sh
-# The agent's way to ask a human (spec §1.5); the adapter reports it as needs_input when the CLI exits.
+# The agent's way to ask a human (agent-adapter spec); the adapter reports it as needs_input when the CLI exits.
 printf '%s\n' "$*" > "${F8_ROOT:-/f8}/state/question.md"
 echo "Recorded. A human will answer later. Write your handoff note to ${F8_ROOT:-/f8}/state/handoff.md, then end your turn."

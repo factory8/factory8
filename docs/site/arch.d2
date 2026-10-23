@@ -10,24 +10,24 @@ cp: "CONTROL PLANE — trusted · one installation per client · on-prem k3s (Ni
   intake: "Intake adapters (pollers)\n→ IntentEnvelope → IntakeWorkflow\nscreen · classify · reproduce · ask · draft intent"
   tmp: "Temporal (+ Postgres)\nstage · route · retries · timers · waits" {style: {fill: "#bbdefb"; bold: true}}
   wf: "SDLC workflows + workers + API\nTypeScript on Node LTS · replay-tested"
-  obj: "Object storage (MinIO)\nevidence by content hash\nagent session logs (*.jsonl)" {shape: cylinder}
+  obj: "Object storage (MinIO)\nevidence by content hash" {shape: cylinder}
   gw: "Gateways — scoped, short-lived per-run tokens" {
     style: {fill: "#bbdefb"}
     g: "Git (later — POC: token\nin sandbox, issue #1)"
     l: "LLM = LiteLLM\n(any provider; POC: static key)"
     d: "Deploy (per-env tools)"
   }
-  ctrl: "agent-sandbox controller\ntemplate · warm pool · suspend / resume"
-  builder: "Project agent builder\nNix dev shell · AGENTS.md · project.yaml\n→ image + SandboxTemplate · checked"
-  builder -> ctrl: "project template"
+  ctrl: "Kubernetes API\nKata pod + PVC per run"
+  builder: "Project agent builder\nNix dev shell · AGENTS.md · project.yaml\n→ image + sandbox template · checked"
+  builder -> wf: "project template"
   intake -> tmp: starts runs
   wf -> tmp: runs on
-  wf -> ctrl: "activity: run step"
+  wf -> ctrl: "create · delete pod\n(suspend = delete, PVC kept)"
 }
 ep: "EXECUTION PLANE — untrusted · disposable" {
   style: {fill: "#ffebee"; bold: true}
   sb: "Sandbox = Kata microVM\nroot inside OK: docker compose, installs\nadapter daemon → any CLI (claude · codex · pi …)" {style: {fill: "#ffcdd2"; bold: true}}
-  pvc: "PVC: workspace · vendor session dir\nhandoff note — kept while suspended\nnever credentials" {shape: cylinder}
+  pvc: "PVC: workspace · session logs (*.jsonl)\nhandoff note — outlives the sandbox\nnever credentials" {shape: cylinder}
   proxy: "Egress proxy — allowlist\n→ read-only package mirrors"
   ci: "Secret-free CI runners\nfor agent branches"
   sb -> pvc
@@ -39,9 +39,9 @@ humans -> forge: "file issues · /accept · /answer\nedit spec/plan · approve P
 humans -> cp.wf: "f8 CLI (API): runs · progress\nanswer · accept · retry"
 forge <- cp.intake: "poll issues (outbound only)"
 forge -> cp.tmp: "commands → signals"
-cp.ctrl -> ep.sb: "create · suspend · resume · delete"
+cp.ctrl -> ep.sb: "starts the Kata pod"
 cp.gw <- ep.sb: "git push · model calls · deploy"
-cp.obj <- ep.sb: "evidence · session logs\n(presigned URLs)"
+cp.obj <- ep.sb: "evidence\n(presigned URLs)"
 cp.wf -> ep.sb: "start step · poll events\n(→ heartbeats)"
 ep.sb -> ep.proxy: "installs"
 ep.sb -> blocked: "" {style: {stroke: "#d32f2f"; stroke-width: 3; stroke-dash: 4}}
