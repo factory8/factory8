@@ -71,5 +71,9 @@
 # - linear.api_key  → use LINEAR_API_KEY env var instead
 # - github.token    → use GITHUB_TOKEN env var instead
 
-sync:
-    remote: "git+https://github.com/factory8/factory8.git"
+# sync:
+    # remote: "git+https://github.com/factory8/factory8.git"
+
+# Shared Dolt server (host, database and user are in metadata.json)
+dolt:
+  port: 3306

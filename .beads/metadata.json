@@ -3,7 +3,6 @@
   "backend": "dolt",
   "dolt_mode": "server",
   "dolt_server_host": "dolt.dolt.svc.cluster.local",
-  "dolt_server_port": 3306,
   "dolt_server_user": "root",
   "dolt_database": "factory8",
   "project_id": "cc4ea598-58b5-4898-b876-8c90ad1fa927"
