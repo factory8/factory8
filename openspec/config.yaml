@@ -1,0 +1,7 @@
+schema: spec-driven
+
+context: |
+  Factory8, Phase 0 POC. The product requirements are docs/PRD.md: cite requirement IDs (AGT-1, SBX-12 …) in proposals, requirements and decisions. A change never edits the PRD on its own: ask first, then follow the PRD ritual in AGENTS.md.
+  Milestone order, the POC exit criterion and what is not in the POC are in docs/plans/poc.md.
+  Build the smallest thing that works: no speculative config, options or abstractions. Don't design security hardening; add each gap to "Not in the POC" instead.
+  In anything committed, call the pilot cluster "the pilot cluster", never by its real name.

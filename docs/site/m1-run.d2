@@ -1,0 +1,43 @@
+title: "M1 run: f8 run 12 → draft PR\nThe worker only manages the sandbox and talks to the adapter; all GitHub work is the agent's.\nRun ID k3x9qa: 6 random characters, not tied to the issue" {
+  near: top-center
+  shape: text
+  style.font-size: 20
+}
+
+seq: "" {
+  shape: sequence_diagram
+  u: "f8 CLI\n(your laptop)"
+  t: "Temporal server\n(+ Postgres)"
+  w: "Worker\n(runWorkflow + activities,\nin the cluster)"
+  k: "Kubernetes API"
+  s: "Sandbox\n(Kata microVM, PVC /f8)\nf8-adapter :7070"
+  a: "Claude Code\n(child of the adapter)"
+  l: LiteLLM
+  g: GitHub
+
+  u."1 render the task prompt:\nresolve issue #12, then\nopen a draft PR that fixes it"
+  u -> t: "2 start runWorkflow\n{ repo, prompt }\nID = run ID k3x9qa,\nthen wait"
+  t -> w: "3 worker picks it up\n(task queue factory8)"
+  w -> k: "4 createSandbox:\nPVC + Kata pod f8-k3x9qa\nfrom the project template"
+  k -> s: "start Kata pod,\nPVC at /f8"
+  k -> w: "pod Ready →\nits pod IP"
+  w -> s: "5 startStep: POST /steps\n{ k3x9qa.build.1, prompt, branch f8/k3x9qa } → 202"
+  s -> g: "6 clone, switch -c f8/k3x9qa,\ninstall the trailer hook"
+  s -> a: "7 claude -p:\npreamble + prompt"
+  a -> g: "8 gh issue view 12"
+  a -> l: "9 model calls\n(static key)"
+  a -> g: "10 commit (Factory8-Run trailer),\npush f8/k3x9qa"
+  a -> g: "11 gh pr create --draft\n(Fixes #12, Run: k3x9qa)"
+
+  poll: "12 pollStep: repeat until an exit event (timeout ~2 h in M1)" {
+    w -> s: "GET /steps/k3x9qa.build.1/events?after=n\n(each call waits up to 30 s)"
+    s -> w: "progress events (Bash: npm test …)"
+  }
+
+  a -> s: "summary ending with the PR URL;\nclaude exits"
+  s -> w: "13 exit event: done + summary\n(or failed, or needs_input)"
+  w."failed or needs_input → the run fails\nwith the reason (M3 adds the wait,\nM4 the retries)"
+  w -> k: "14 deleteSandbox: delete the pod,\nkeep the PVC (finally: always)"
+  w -> t: "workflow result = the exit event"
+  t -> u: "15 prints the summary with the PR URL\n(or the failure reason)"
+}

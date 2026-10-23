@@ -21,7 +21,11 @@ Summary pages: `site/prd.html`, `site/architecture.html`.
 | **Dogfooding; phase order** — OQ-3 resolved (§8, G11, A5) | Factory8 is developed with Factory8: once the thinnest loop works (M1), Factory8's own changes go through Factory8 runs, and each later piece is used on the next change. `librepod/marketplace` is the pilot alongside it. Phase 0 is delivered as four increments, each usable as soon as it lands: M1 issue → sandboxed agent → draft PR; M2 live progress and session logs; M3 questions with suspend/resume; M4 recovery from stalls and sandbox death |
 | **`project.yaml` postponed** (PRJ-1, OQ-16) | Phase 0 runs on what the repo already has — Nix dev shell, `AGENTS.md`, the CLI's native skills and MCP config — plus installation defaults (agent profile, egress allowlist). The schema is written when a feature first reads it (Phase 1: commands, checks, route rules, egress and secret requests) |
 | **Pilot repo named** (A11) | `librepod/marketplace` on GitHub: Nix dev shell, `AGENTS.md`, project skills |
-| Fixes | AGT-9, NFR-9: session files are opaque to workflows, but stored raw for restore and analysis (AGT-11) |
+| Fixes | AGT-9, NFR-9: session files are opaque to workflows, but stored raw for restore and analysis (AGT-11); the §7 question flow now says the agent asks with `f8-ask`, not through its CLI's question tool and an adapter hook (SBX-11, A15) |
+| Contract drafts moved (OQ-16) | The Phase 0 contract drafts moved from `specs/phase0-contracts.md` to OpenSpec specs (`openspec/` at the repo root): the built adapter is the `agent-adapter` spec, and the rest are delta specs in the M1 change. This changes only where our working notes live; no requirement changed |
+| Session logs stay on the run's volume (AGT-11, SBX-15) | Session logs are no longer uploaded to object storage: they stay on the run's PVC, which is kept after the run's sandboxes are deleted until retention removes it. Claude Code resumes from the session file alone, even in a fresh home directory (tested on 2.1.289), so restoring needs no store. Object storage keeps evidence (ART-12) |
+| **Sandboxes are plain Kata pods** (SBX-1, SBX-8, SBX-11, SBX-13, SBX-16, A8) | agent-sandbox is dropped. The worker creates each sandbox itself: a pod on the Kata `RuntimeClass` and a PVC, both named after the run. Suspend deletes the pod and keeps the PVC; resume starts a new pod on it. Why: in v1.0.8 its core does little more than that, and its template layer needs workarounds (a claim requires a warm pool; a template adds a NetworkPolicy that blocks the worker and DNS by default). Warm pools (SBX-8) are designed when Phase 2 needs them |
+| **No permission checks in sandboxes** (BLD-6, AGT-3) | Agent CLIs always run with their permission checks off, not just by default (Claude Code: `--dangerously-skip-permissions`, with `IS_SANDBOX=1` so it runs as root): the agent is root in its microVM and decides on its own what to do. The microVM is the boundary; gates and gateway policy are the human controls. Agent profiles no longer carry tool permissions |
 
 ### v0.5 (from v0.4)
 
@@ -137,7 +141,7 @@ Primary users are engineers who already run agents in the terminal (Claude Code,
 
 ## 7. Architecture (logical)
 
-Control plane (trusted, one per installation): Temporal (+Postgres) · intake adapters (pollers) + IntakeWorkflow · SDLC workflows + workers · git gateway → forge (commands polled → signals) · `f8` CLI over the control-plane API · LLM gateway (any configured provider) · deploy gateway (MCP tools) · object storage (evidence, agent session logs) · sandbox controller (agent-sandbox) · project agent builder (image + template, checks) + registry. Execution plane (untrusted): Kata microVM sandboxes started from the project agent's image, running the agent adapter daemon (polled by workers) + any CLI, with a PVC for workspace and session · egress proxy with allowlist → read-only package mirrors · secret-free CI runners for agent branches. Diagram: `site/architecture.html`.
+Control plane (trusted, one per installation): Temporal (+Postgres) · intake adapters (pollers) + IntakeWorkflow · SDLC workflows + workers · git gateway → forge (commands polled → signals) · `f8` CLI over the control-plane API · LLM gateway (any configured provider) · deploy gateway (MCP tools) · object storage (evidence) · sandbox manager (the workers create Kata pods and PVCs directly) · project agent builder (image + template, checks) + registry. Execution plane (untrusted): Kata microVM sandboxes started from the project agent's image, running the agent adapter daemon (polled by workers) + any CLI, with a PVC for workspace and session · egress proxy with allowlist → read-only package mirrors · secret-free CI runners for agent branches. Diagram: `site/architecture.html`.
 
 Run shape:
 
@@ -154,9 +158,9 @@ GitHub issue (owner) ─poll─▶ IntakeWorkflow: screen → classify → repro
 Mid-step wait:
 
 ```
-agent asks (its CLI's question tool, caught by an adapter hook) ─▶ adapter reports needs_input (question + handoff note)
-  workflow: suspend Sandbox (pod terminated; Sandbox + PVC kept) ─▶ post question on issue/PR ─▶ wait for signal
-human: /answer … on the issue/PR, or `f8 answer` ─▶ signal ─▶ resume Sandbox (PVC reattached) ─▶ template setup script ─▶ fresh tokens
+agent asks with `f8-ask "<question>"` and ends its turn (A15) ─▶ adapter reports needs_input (question + handoff note)
+  workflow: suspend the sandbox (pod deleted; PVC kept) ─▶ post question on issue/PR ─▶ wait for signal
+human: /answer … on the issue/PR, or `f8 answer` ─▶ signal ─▶ resume the sandbox (new pod on the same PVC) ─▶ project setup command ─▶ fresh tokens
   adapter: vendor session resume with the answer (e.g. `claude -p --resume <id>`, `codex exec resume <id>`)
            or, if unsupported/missing, a fresh session from handoff note + answer + branch
 ```
@@ -212,22 +216,22 @@ Priority: **M** must · **S** should · **C** could. `[n]` = phase. ★ = new or
 ### 9.3 SBX — Sandboxed execution
 | ID | Requirement | P |
 |---|---|---|
-| SBX-1 ★ | Each agent session runs in its own agent-sandbox `Sandbox` (Kata microVM `RuntimeClass`, from a `SandboxTemplate`); deleted when its step ends, suspended while it waits on a human (SBX-11). [0] | M |
+| SBX-1 ★ | Each agent session runs in its own sandbox: a pod on the Kata microVM `RuntimeClass` with the run's PVC, created by the workers from the project's sandbox template, with no sandbox controller; deleted when its step ends, suspended while it waits on a human (SBX-11). [0] | M |
 | SBX-2 | Root/admin inside the VM is permitted (package installs, docker compose); no privileged host access. [0] | M |
 | SBX-3 ★ | Default-deny NetworkPolicy: sandbox may reach only the gateways, the egress proxy and presigned object-storage URLs; no access to Temporal, the Kubernetes API, or other sandboxes. Inbound traffic only from Factory8 workers to the adapter's port (AGT-1). [0] | M |
 | SBX-4 | Egress proxy allowlist for package registries, mirrors and image pulls; all egress logged. [0] | M |
 | SBX-5 ★ | No standing credentials: tokens are minted per step, revoked on delete or suspend, re-minted on resume; no cloud/cluster creds. Phase 0 POC exception: a GitHub token and a static LiteLLM key from a Secret ([#1](https://github.com/factory8/factory8/issues/1)). [0] | M |
 | SBX-6 ★ | Workspace per run: repo checkout on the run branch at a fixed path on the sandbox's PVC; durable results persist via the branch and object storage, not VM state. [0] | M |
 | SBX-7 | Resource limits and timeouts per step from workflow config (CPU, memory, disk, wall clock). [0] | M |
-| SBX-8 | Warm pools (`SandboxWarmPool`) for common templates to cut start latency. [2] | S |
+| SBX-8 | Warm pools of pre-started sandboxes for common templates to cut start latency. [2] | S |
 | SBX-9 | Sandbox base images are curated, versioned and scanned; image policy defined. Project images (SBX-16) build on them. [1] | S |
 | SBX-10 | Step evidence captured: command/output transcript, test output, screenshots, resource use (ART-12). [1] | M |
-| SBX-11 ★ | **Suspend on wait:** when the agent needs human input mid-step, it runs `f8-ask "<question>"` and ends its turn (A15), and the adapter reports `needs_input` (question + handoff note); the workflow suspends the Sandbox (pod terminated, Sandbox object and PVC kept), posts the question to the issue/PR and waits for a signal. Stage gates delete the sandbox instead. [0] | M |
+| SBX-11 ★ | **Suspend on wait:** when the agent needs human input mid-step, it runs `f8-ask "<question>"` and ends its turn (A15), and the adapter reports `needs_input` (question + handoff note); the workflow suspends the sandbox (pod deleted, PVC kept), posts the question to the issue/PR and waits for a signal. Stage gates delete the sandbox instead. [0] | M |
 | SBX-12 ★ | **What persists:** only PVC paths — the workspace (incl. uncommitted changes), the vendor session directory (e.g. `~/.claude/projects`, `~/.codex/sessions`) and the handoff note. Never credentials or gateway tokens. Root-filesystem changes, installed packages and running services are lost. [0] | M |
-| SBX-13 ★ | **Resume:** on the answer signal the Sandbox resumes with the PVC reattached at the same paths, the template's setup script re-runs, fresh tokens are minted, and the adapter resumes the vendor session with the answer; if the vendor can't resume or the session is missing, it starts a fresh session from handoff note + answer + branch. [0] | M |
+| SBX-13 ★ | **Resume:** on the answer signal a new sandbox pod starts with the PVC reattached at the same paths, the project's setup command re-runs, fresh tokens are minted, and the adapter resumes the vendor session with the answer; if the vendor can't resume or the session is missing, it starts a fresh session from handoff note + answer + branch. [0] | M |
 | SBX-14 ★ | Package egress is read-only: sandboxes reach registries only through pull-through mirrors, or a proxy that permits only GET/HEAD to registry hosts; publish/upload endpoints and arbitrary git hosts are blocked. [4] | M |
-| SBX-15 ★ | Suspended sandboxes (PVC included) are deleted when the run ends, is cancelled, or exceeds a max wait; the PVC storage class is chosen per installation and must be networked on multi-node installs (pilot: NFS provisioner, OQ-21). [0] | M |
-| SBX-16 ★ | **Project environment** (the environment part of the project agent, PRJ-1): each project declares its agent environment in its repo — toolchain and versions, system packages, dependency install, images for docker compose services, setup command (declared in the repo's Nix dev shell first; other formats through environment providers, PRJ-8). Factory8 builds it into a versioned project image and a per-project `SandboxTemplate`; every agent session for that project — any user, any run — starts from it, so a step installs only what its own branch changed. The declaration controls only what is installed; runtime class, network and egress policy, resource ceilings and the adapter stay in admin-owned config (DEP-6). [0] | M |
+| SBX-15 ★ | Suspended sandboxes are deleted when the run ends, is cancelled, or exceeds a max wait; the run's PVC is kept for its session logs (AGT-11) until retention removes it (ART-10); the PVC storage class is chosen per installation and must be networked on multi-node installs (pilot: NFS provisioner, OQ-21). [0] | M |
+| SBX-16 ★ | **Project environment** (the environment part of the project agent, PRJ-1): each project declares its agent environment in its repo — toolchain and versions, system packages, dependency install, images for docker compose services, setup command (declared in the repo's Nix dev shell first; other formats through environment providers, PRJ-8). Factory8 builds it into a versioned project image and a per-project sandbox template (the pod spec); every agent session for that project — any user, any run — starts from it, so a step installs only what its own branch changed. The declaration controls only what is installed; runtime class, network and egress policy, resource ceilings and the adapter stay in admin-owned config (DEP-6). [0] | M |
 | SBX-17 ★ | Project images are built by a Factory8 build workflow, never in an agent sandbox: from the default branch only, with egress through the mirrors, and private-registry credentials passed as build secrets that never reach an image layer. Images are tagged by a hash of the declaration and lockfiles, scanned (SBX-9) and pushed to the installation's registry. A change to those files on the default branch, or a scheduled patch rebuild, triggers a build; a failed build keeps the last good image and notifies the project owner. Run branches never build images: an environment change on a run branch is installed at step start for that run only and counts as a new dependency (ORC-12). [1] | M |
 | SBX-18 ★ | Fast start, little traffic: warm pools per project template (SBX-8); a git mirror per repo so checkout fetches only the delta; compose service images and dependency caches baked into the image or served from in-cluster caches; targets in OQ-13. [2] | S |
 
@@ -236,7 +240,7 @@ Priority: **M** must · **S** should · **C** could. `[n]` = phase. ★ = new or
 |---|---|---|
 | AGT-1 ★ | A documented adapter contract: input = workspace + task (refs to intent/spec/plan) + context bundle + gateway endpoints/tokens [+ human answer on resume]; output = result + evidence refs + exit status `done` / `failed` / `needs_input` (question + handoff note). The adapter runs as a daemon inside the sandbox; a worker activity starts the step through it and polls its event stream, which feeds the step's heartbeats (ORC-13), so a worker restart never stops the agent. Vendor hooks may be used inside the adapter, never as a path to the control plane. [0] | M |
 | AGT-2 ★ | Vendor order: Claude Code is the first adapter [0]; Codex is implemented behind the same contract before Phase 1 exit [1]; pi qualifies third by passing the conformance suite (AGT-7) [2]. [1] | M |
-| AGT-3 | Workflow steps select an **agent profile** (vendor, model, effort, tool permissions) by name; profiles are config, not code; a project agent sets its own defaults within the installation's allowlist (PRJ-2). [0] | M |
+| AGT-3 | Workflow steps select an **agent profile** (vendor, model, effort) by name; profiles are config, not code; a project agent sets its own defaults within the installation's allowlist (PRJ-2). [0] | M |
 | AGT-4 ★ | Context is vendor-neutral: the repo's `AGENTS.md` (PRJ-1) plus installation-level conventions. Adapters translate for CLIs that don't read `AGENTS.md` natively (e.g. a generated `CLAUDE.md` that imports it). [1] | M |
 | AGT-5 | Policy bundles (security, compliance, brand, UX) are versioned, owner-signed, injected into context by the adapter; advisory only, with deterministic backstops in the platform. [1] | M |
 | AGT-6 ★ | All model traffic goes through the LLM gateway (keys, budgets, per-run attribution, logging, per-installation provider/model allowlist). The gateway is LiteLLM (off-the-shelf, PLT-8): each step's token is a LiteLLM virtual key with a budget, an expiry and the run ID, deleted on exit or suspend (Phase 0 POC: one static key from a Secret, [#1](https://github.com/factory8/factory8/issues/1)). [0] | M |
@@ -244,7 +248,7 @@ Priority: **M** must · **S** should · **C** could. `[n]` = phase. ★ = new or
 | AGT-8 | Reviewer/verifier steps can use a different vendor/profile than the author. [2] | S |
 | AGT-9 ★ | Session resume is an optional, declared adapter capability; session files are opaque to workflows and artifact formats (stored raw, AGT-11); the adapter may prefer the handoff path when a session is too large to re-send cheaply (NFR-7). [0] | S |
 | AGT-10 ★ | **Custom LLM providers:** the adapter points each vendor CLI at the LLM gateway through the CLI's own settings (e.g. `ANTHROPIC_BASE_URL` for Claude Code, a custom provider entry for Codex) and passes a per-run gateway token as its key. The gateway routes to any provider the installation configures — vendor APIs, cloud-hosted models, self-hosted or API-compatible endpoints — and maps model names, so a profile can name any allowed model. [0] | M |
-| AGT-11 ★ | **Session logs kept:** every agent session's log files — the vendor session files (e.g. `~/.claude/projects/**/*.jsonl`, `~/.codex/sessions/**/*.jsonl`) and the adapter's event log — are collected into object storage under their run and step, at every step exit and before any PVC is deleted (SBX-15). From that store a session can be restored — after its sandbox died, into a new sandbox, or in an engineer's terminal (PRJ-6) — and logs can be analysed later. Retention per ART-10; nothing leaves the installation (TEN-2). [0] | M |
+| AGT-11 ★ | **Session logs kept:** every agent session's log files — the vendor session files (e.g. `~/.claude/projects/**/*.jsonl`, `~/.codex/sessions/**/*.jsonl`) and the adapter's event log — stay on the run's volume (the PVC), which outlives the run's sandboxes until retention removes it (SBX-15). Nothing is uploaded: a session restores from its own file — in a new sandbox on the same volume after its sandbox died, or in an engineer's terminal from a copy (PRJ-6) — and logs can be analysed later. Retention per ART-10; nothing leaves the installation (TEN-2). [0] | M |
 
 ### 9.5 INT / PLN — Intake and plan
 | ID | Requirement | P |
@@ -281,7 +285,7 @@ Priority: **M** must · **S** should · **C** could. `[n]` = phase. ★ = new or
 | BLD-3 ★ | The repo's `AGENTS.md` (commands, conventions, architecture, known mistakes) plus a **pattern catalog** (ADRs, accepted patterns), both part of the project agent (PRJ-1) and reviewed like code; repeated mistakes and newly accepted patterns are added via PR. The catalog is what lets a change be `routine`. [1] | M |
 | BLD-4 ★ | Protected paths (incl. CI config, CODEOWNERS, factory config, the project agent definition), credential-in-diff detection, format/lint run as **platform checks** on the run branch (gateway pre-push and CI), not agent hooks. [1] | M |
 | BLD-5 | Parallel runs/steps in separate sandboxes and branches; limit set by review capacity. [2] | S |
-| BLD-6 | Auto (no per-edit approval) execution is the default inside sandboxes; human control is at gates and via gateway policy. [1] | M |
+| BLD-6 | Agent CLIs always run inside sandboxes with their permission checks off and no per-edit approval (Claude Code: `--dangerously-skip-permissions`): the agent is root in its microVM and decides on its own what to do. Human control is at gates and via gateway policy. [1] | M |
 | BLD-7 ★ | `high-risk` runs require a tech-lead/architect approval gate (route definition: PRJ-9). [1] | M |
 | BLD-8 ★ | CI for agent branches runs on untrusted runners with no secrets and egress limited to mirrors; jobs needing secrets (deploy, signing, real integrations) run only on protected branches or after a human gate. [4] | M |
 
@@ -407,7 +411,7 @@ Sources: forge (issues, PRs, reviews), Temporal history, object storage, CI logs
 | Agent-written workflow code breaks determinism and stalls in-flight runs | Replay tests on every workflow change; worker versioning (ORC-6) |
 | Routine route lets an under-reviewed change through | Human confirms the route at intent; installation floors on route rules (PRJ-9); deterministic escalation (ORC-12); human release gate; verifier ≠ author (DEP-11) |
 | Resumed agent assumes state that no longer exists (packages, services) | Setup script on resume; resume prompt lists what was not preserved; handoff note (SBX-12/13) |
-| Suspended PVCs hold client code and transcripts | No creds on PVC; tokens re-minted; PVC deleted with the run (SBX-15); retention (ART-10) |
+| Suspended PVCs hold client code and transcripts | No creds on PVC; tokens re-minted; PVC kept after the run only for session logs, until retention removes it (SBX-15, AGT-11, ART-10) |
 | Vendor CLIs change session formats or resume commands | Resume optional per adapter (AGT-9); CLI versions pinned in templates; handoff fallback |
 | POC: an agent reads the GitHub token or LLM key in its sandbox and misuses it (push to `master`, unbounded spend) | Only the author's own repos and issues; a token scoped to those repos; fixed by [#1](https://github.com/factory8/factory8/issues/1) before any client install or outside collaborator |
 | Agent with root + network exfiltrates code or acts on injected instructions | Default-deny egress + allowlist; gateways only; no standing creds; untrusted-origin labeling (ART-9); read-only registries (SBX-14) |
@@ -419,7 +423,7 @@ Sources: forge (issues, PRs, reviews), Temporal history, object storage, CI logs
 | Agent weakens tests of its own fix | TST-3 gateway rejection |
 | Alert noise / runaway headless runs | Deterministic detection, σ tiers, confidence gates, budgets |
 | Operational burden (Temporal, Postgres, object storage, controller, gateways) | Phase 0 skeleton first; Nix-managed config; runbooks; PLT-2/6 |
-| Young dependencies (agent-sandbox, vendor CLIs) | Own the abstraction (adapter, sandbox interface); version-pin; upgrade tests |
+| Young dependencies (vendor CLIs) | Own the abstraction (adapter, sandbox interface); version-pin; upgrade tests |
 | Node-local PVCs pin a suspended sandbox to one node | Networked storage class for multi-node installs (OQ-21) |
 | NFS-backed workspaces: root inside the VM may hit `root_squash`; small-file I/O (dependency installs, git) is slow | Check both in the A8 spike; keep heavy dependency caches in the project image (SBX-16/18) and only workspace, session and handoff note on the PVC |
 | Project image goes stale, grows huge, or leaks a build credential | Rebuilt on definition/lockfile change and on schedule; branch deltas installed at step start; build secrets never in layers; scanned before push; definition is a protected path (SBX-17, BLD-4) |
@@ -437,7 +441,7 @@ Sources: forge (issues, PRs, reviews), Temporal history, object storage, CI logs
 - A5. The prototype runs on Factory8's own repo (dogfooding, from M1) and the author's pilot project (`librepod/marketplace`); one person holds every human role.
 - A6. **Platform base is available:** NixOS k3s with Kata/microVM RuntimeClass was proven in a POC by the product owner; production hardening (HA, storage, upgrades) remains under PLT/NFR-10. The pilot installation runs on the author's existing single-node k3s cluster, next to their LiteLLM.
 - A7. LLM providers are reachable over outbound HTTPS through the LLM gateway.
-- A8. agent-sandbox's suspended mode (pod terminated, Sandbox and PVCs kept, PVC reattached on resume) works with the Kata RuntimeClass — verify in a Phase 0 spike on the pilot's NFS storage class, including file ownership for root inside the VM.
+- A8. Suspend by pod deletion (PVC kept, a new pod reattaches it at the same paths on resume) works with the Kata RuntimeClass — verify in a Phase 0 spike on the pilot's NFS storage class, including file ownership for root inside the VM.
 - A9. At least one target CLI resumes a session headlessly (e.g. `claude -p --resume`, `codex exec resume`) — verify per adapter.
 - A10. Object storage (e.g. MinIO) runs in-cluster.
 - A11. The pilot project is `librepod/marketplace`; its issues and code are on GitHub (confirmed v0.6).
@@ -465,7 +469,7 @@ Sources: forge (issues, PRs, reviews), Temporal history, object storage, CI logs
 | OQ-13 | Sandbox start, resume and concurrency targets (nodes, warm pool size) | Phase 0 |
 | ~~OQ-14~~ | ~~Round-trip edits~~ **Resolved: reviewers edit the files directly** | — |
 | OQ-15 | Which forges: GitHub for the pilot (A11); which on-prem forge for client installs (GitLab/Gitea/GitHub Enterprise)? | Phase 0 |
-| OQ-16 | Artifact formats (front-matter, file layout on the run branch), intake envelope and source-adapter interface, agent adapter contract — exact spec (draft: `specs/phase0-contracts.md`); `.factory8/project.yaml` schema when first needed | Phase 0; schema Phase 1 |
+| OQ-16 | Artifact formats (front-matter, file layout on the run branch), intake envelope and source-adapter interface, agent adapter contract — exact spec (drafts: OpenSpec specs in `openspec/` at the repo root); `.factory8/project.yaml` schema when first needed | Phase 0; schema Phase 1 |
 | ~~OQ-17~~ | ~~Multi-tenancy~~ **Resolved: one installation per client; namespace per project** | — |
 | ~~OQ-18~~ | ~~First vendors~~ **Resolved: Claude Code, then Codex, then pi** (AGT-2) | — |
 | ~~OQ-19~~ | ~~Workflow language~~ **Resolved: TypeScript on Node LTS** (PLT-8) | — |
