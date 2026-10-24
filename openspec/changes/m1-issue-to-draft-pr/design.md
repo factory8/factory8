@@ -118,7 +118,14 @@ Diagram: `docs/site/m1-run.svg` (source `m1-run.d2`).
 - **Delivery:** built by hand on the laptop and loaded onto the single node with `k3s ctr images import`. No registry yet; the SBX-17 build workflow is Phase 1.
 - **Tag:** the image's Nix store hash, with `imagePullPolicy: Never` on the pod. Each build gets a new tag, so an image in use never changes under a run. That's the digest pinning borrowed from ax, without a registry; `F8_IMAGES` (D2) names the tag.
 
-**Rejected:** nix2container, which needs an extra flake input.
+**Rejected:**
+- nix2container, which needs an extra flake input.
+- Flox (researched 2026-10-24) in place of the Nix dev shell and `dockerTools`:
+  - It can't read a `flake.nix` or `shell.nix` dev shell, so every repo, and the engineer's own shell with it, would move to `.flox/manifest.toml` (PRJ-1, PRJ-6).
+  - Since 2026-10-20, every lock or install resolves through Flox's hosted catalog and needs a FloxHub login, a sandbox's included. A catalog of our own is Enterprise only (paid), which conflicts with single-tenant installs that share nothing.
+  - Its imageless Kubernetes shim wraps runc, not Kata, and its source isn't public.
+  - Its one gain, activation hooks running inside the container, `nix print-dev-env` can give us if the lost `shellHook` ever matters.
+  - It stays a possible later environment provider (PRJ-8) for a repo that already has `.flox/`. That provider would need the repo's `manifest.lock` committed, since activating a locked environment needs no login.
 
 ### D4. Deployment
 
