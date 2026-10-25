@@ -21,7 +21,7 @@ See proposal.md for why. The adapter is built and tested on a host (`agent-adapt
 | What else is on the pilot cluster? | Single-node k3s on NixOS 25.11, amd64. The user updated k3s to v1.34.12 on 2026-10-23 (containerd 2.2.7). StorageClass `nfs-client` (reclaim policy `Retain`) is the only one, and it isn't marked as the default, so a PVC must name it. Flux manages the cluster (`flux-system`). cert-manager, OpenBao and external-secrets are installed |
 | Is MinIO already running on the pilot cluster? | No, and the POC doesn't need it for session logs: they stay on the run's PVC (D1) |
 | Is there an image registry? | No |
-| What are LiteLLM's in-cluster URL and key? | Not on the pilot cluster yet. LiteLLM is a LibrePod marketplace app: the user installs it from the marketplace UI (task 1.2). Its Service gives the URL, and the static key is created in LiteLLM |
+| What are LiteLLM's in-cluster URL and key? | Installed from the LibrePod marketplace (v1.106.3, 2026-10-25): Service `litellm` in namespace `litellm`, port 4000. Its models are `glm-5.3` and `glm-5.3-flash` (provider `anthropic/`); both answer `/v1/messages` with a `thinking` block before the text, so a small `max_tokens` can end before any text. The static key is created at task 1.4 and goes straight into the sandbox Secret |
 | Does the Temporal TypeScript SDK support Node 24? | Yes. The SDK officially supports Node 20, 22 and 24 (SDK README, checked 2026-10-23) |
 
 ## Decisions
@@ -201,6 +201,7 @@ Diagram: `docs/site/m1-run.svg` (source `m1-run.d2`).
 **Decided (2026-10-23), refined:**
 - **Worker:** env vars on its Deployment: `TEMPORAL_ADDRESS` (Temporal's in-cluster address), `F8_MODEL` (the default model) and `F8_IMAGES` (D2). No config file, no `project.yaml`, and no GitHub token.
 - **The default profile:** when a run has no `profile`, `startStep` sends `{ vendor: 'claude-code', model: F8_MODEL }`. The workflow can't read env vars itself (Temporal replays it), and `f8 run` on the laptop can't see the worker's.
+- **`F8_MODEL` on the pilot cluster:** `glm-5.3`, through LiteLLM (task 1.2, 2026-10-25). Claude Code needs only `--model` for it: a step on the host with just `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN` made 4 `/v1/messages` calls, all to that model, and pushed its commit in 27s.
 - **Constants, not settings:** the sandbox namespace `f8-sandboxes` (D2) and the adapter port 7070.
 - **Sandbox:** `GH_TOKEN` and LiteLLM's URL and key come from the Secret (`sandbox` spec).
 
