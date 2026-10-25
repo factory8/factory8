@@ -30,7 +30,7 @@
 
 **Hardening (POC first):**
 - [#1](https://github.com/factory8/factory8/issues/1): remove credentials from agent sandboxes (ART-4, SBX-5, AGT-6). One way: an egress proxy that adds the tokens on the way out, as Agent Substrate does; kagent's egress gateway swaps a placeholder `Authorization` header for the Secret's value.
-- Default-deny NetworkPolicy for sandboxes (SBX-3).
+- Default-deny NetworkPolicy for sandboxes (SBX-3). The pilot cluster's one node also runs the user's other production services, and until this lands a sandbox can reach every in-cluster Service.
 - Egress proxy with allowlist (SBX-4).
 - Backups for Temporal's Postgres and object storage (PLT-2).
 - Scan project images (SBX-9).
