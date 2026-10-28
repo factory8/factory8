@@ -36,34 +36,40 @@
           };
         };
 
-      packages = forAll (pkgs: {
+      packages = forAll (pkgs: let
+        # Node, the workspaces and their production dependencies, shared by the worker's image and f8.
+        src = lib.fileset.toSource {
+          root = ./.;
+          fileset = lib.fileset.unions [ ./package.json ./package-lock.json ./adapter ./worker ./cli ];
+        };
+        app = pkgs.buildNpmPackage {
+          pname = "factory8";
+          version = "0";
+          inherit src;
+          nodejs = pkgs.nodejs_24;
+          npmDeps = pkgs.importNpmLock { npmRoot = src; };
+          npmConfigHook = pkgs.importNpmLock.npmConfigHook;
+          npmFlags = [ "--omit=dev" ];
+          dontNpmBuild = true;
+          installPhase = "mkdir $out && cp -r node_modules adapter worker cli $out/";
+        };
+      in {
         sandbox-image = self.lib.sandboxImage {
           inherit pkgs;
           name = "factory8-sandbox";
           shell = self.devShells.${pkgs.stdenv.hostPlatform.system}.default;
         };
 
-        # The worker's image (M1 design D4): Node, the worker and its production dependencies.
-        worker-image = let
-          src = lib.fileset.toSource {
-            root = ./.;
-            fileset = lib.fileset.unions [ ./package.json ./package-lock.json ./adapter ./worker ];
-          };
-          app = pkgs.buildNpmPackage {
-            pname = "f8-worker";
-            version = "0";
-            inherit src;
-            nodejs = pkgs.nodejs_24;
-            npmDeps = pkgs.importNpmLock { npmRoot = src; };
-            npmConfigHook = pkgs.importNpmLock.npmConfigHook;
-            npmFlags = [ "--omit=dev" ];
-            dontNpmBuild = true;
-            installPhase = "mkdir $out && cp -r node_modules adapter worker $out/";
-          };
-        in pkgs.dockerTools.streamLayeredImage {
+        # The worker's image (M1 design D4).
+        worker-image = pkgs.dockerTools.streamLayeredImage {
           name = "factory8-worker";
           config.Entrypoint = [ "${pkgs.nodejs_24}/bin/node" "${app}/worker/src/main.ts" ];
         };
+
+        # f8 on the laptop (M1 design D5): nix run <this repo>#f8 -- run 12
+        f8 = pkgs.runCommand "f8" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''
+          makeWrapper ${pkgs.nodejs_24}/bin/node $out/bin/f8 --add-flags ${app}/cli/src/main.ts
+        '';
       });
 
       devShells = forAll (pkgs: {
