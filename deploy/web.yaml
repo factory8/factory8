@@ -19,7 +19,6 @@ spec:
     keys:
       clientId: TEMPORAL_AUTH_CLIENT_ID
       clientSecret: TEMPORAL_AUTH_CLIENT_SECRET
-      issuer: OIDC_DISCOVERY_URL # unused: the UI wants the issuer itself (TEMPORAL_AUTH_PROVIDER_URL)
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
