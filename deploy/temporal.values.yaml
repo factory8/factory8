@@ -21,3 +21,16 @@ server:
             databaseName: temporal_visibility
     namespaces:
       create: true # the worker's namespace, `default`
+web:
+  # SSO through Casdoor (deploy/web.yaml). Without server-side authorization, everyone who logs in can do anything.
+  additionalEnvSecretName: temporal-sso # TEMPORAL_AUTH_CLIENT_ID and _SECRET
+  additionalEnv:
+    - { name: TEMPORAL_AUTH_ENABLED, value: "true" }
+    - { name: TEMPORAL_AUTH_PROVIDER_URL, value: https://id.libre.pod }
+    - { name: TEMPORAL_AUTH_CALLBACK_URL, value: https://temporal.libre.pod/auth/sso/callback }
+    - { name: TEMPORAL_AUTH_SCOPES, value: "openid,profile,email" } # comma-separated in this image, not as in the docs
+    - { name: SSL_CERT_FILE, value: /etc/libre-pod-ca/root_ca.crt } # the UI's only TLS peer is id.libre.pod
+  additionalVolumes:
+    - { name: root-ca, secret: { secretName: step-certificates-certs } }
+  additionalVolumeMounts:
+    - { name: root-ca, mountPath: /etc/libre-pod-ca, readOnly: true }
