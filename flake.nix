@@ -42,6 +42,28 @@
           name = "factory8-sandbox";
           shell = self.devShells.${pkgs.stdenv.hostPlatform.system}.default;
         };
+
+        # The worker's image (M1 design D4): Node, the worker and its production dependencies.
+        worker-image = let
+          src = lib.fileset.toSource {
+            root = ./.;
+            fileset = lib.fileset.unions [ ./package.json ./package-lock.json ./adapter ./worker ];
+          };
+          app = pkgs.buildNpmPackage {
+            pname = "f8-worker";
+            version = "0";
+            inherit src;
+            nodejs = pkgs.nodejs_24;
+            npmDeps = pkgs.importNpmLock { npmRoot = src; };
+            npmConfigHook = pkgs.importNpmLock.npmConfigHook;
+            npmFlags = [ "--omit=dev" ];
+            dontNpmBuild = true;
+            installPhase = "mkdir $out && cp -r node_modules adapter worker $out/";
+          };
+        in pkgs.dockerTools.streamLayeredImage {
+          name = "factory8-worker";
+          config.Entrypoint = [ "${pkgs.nodejs_24}/bin/node" "${app}/worker/src/main.ts" ];
+        };
       });
 
       devShells = forAll (pkgs: {
@@ -50,6 +72,7 @@
             nodejs_24 # LTS; move to 26 once Temporal's TypeScript SDK supports it
             temporal-cli
             kubectl
+            kubernetes-helm # deploy/'s vendor charts
             d2
             python3 # serves docs/site
           ];

@@ -11,18 +11,20 @@ Factory8 is a self-hosted AI-native software factory. Temporal workflows, writte
 
 ## Environment
 
-`nix develop` gives you Node 24 LTS, the Temporal CLI, kubectl, d2 and python3. Node runs the TypeScript directly (type stripping, so erasable syntax only); there is no build step.
+`nix develop` gives you Node 24 LTS, the Temporal CLI, kubectl, helm, d2 and python3. Node runs the TypeScript directly (type stripping, so erasable syntax only); there is no build step.
 
-- `npm test`: tests (`node --test`).
+- `npm test`: tests (`node --test`), inside the dev shell: the worker's tests start its `temporal`.
 - `npm run typecheck`: `tsc`, no emit.
 - `nix build .#sandbox-image`: the sandbox image (M1 design D3). The result is a script that streams the image; pipe it to `docker load` or `k3s ctr images import -`.
+- `nix build .#worker-image -o result-worker`: the worker's image (M1 design D4), streamed the same way. After importing either image, put its new tag in `deploy/worker.yaml`.
 
 ## Layout
 
 - `docs/`: the PRD, the POC plan, briefs, and `site/` (HTML summaries and D2 diagrams).
 - `openspec/`: specs and changes (see "Read first").
 - `adapter/`: `f8-adapter`, the daemon inside each sandbox that runs the agent CLI (`agent-adapter` spec), and `f8-ask`.
-- Coming with M1: `worker/` (Temporal) and `cli/` (`f8`), as more npm workspaces.
+- `worker/`: the Temporal worker and its one-step workflow (`run-workflow` spec); it manages sandboxes and talks to the adapter, nothing else.
+- Coming with M1: `cli/` (`f8`), as another npm workspace.
 
 ## When the PRD changes
 

@@ -3,3 +3,4 @@ resources:
   - namespaces.yaml
   - eso.yaml
   - postgres.yaml
+  - worker.yaml
