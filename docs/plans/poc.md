@@ -35,6 +35,7 @@
 - Backups for Temporal's Postgres and object storage (PLT-2).
 - Scan project images (SBX-9).
 - Resource limits per step (SBX-7).
+- Authorization in Temporal: the web UI at `temporal.libre.pod` logs in through Casdoor (`deploy/web.yaml`), but the server has no `Authorizer`, so everyone who can log in can do anything, and the frontend's gRPC port (the worker; `f8` through a port-forward) takes no credentials. Fix: the server's JWT `ClaimMapper` and `Authorizer` with Casdoor's keys, and tokens for the worker and `f8`.
 
 **Later:**
 - The project image build workflow (SBX-17, Phase 1). Until then, `nix build` runs by hand.

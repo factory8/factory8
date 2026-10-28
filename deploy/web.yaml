@@ -1,0 +1,38 @@
+# Temporal's web UI at temporal.libre.pod, with SSO through the cluster's Casdoor (id.libre.pod).
+# The SSOClient makes the Casdoor app and the Secret temporal-sso, which the UI reads (temporal.values.yaml).
+apiVersion: marketplace.librepod.org/v1alpha1
+kind: SSOClient
+metadata:
+  name: temporal-sso
+  namespace: factory8
+spec:
+  clientId: temporal
+  organization: librepod
+  casdoorPolicy: retain
+  grantTypes: [authorization_code, refresh_token]
+  tokenFormat: JWT-Standard
+  expireInHours: 168
+  redirectUris:
+    - https://temporal.libre.pod/auth/sso/callback
+  output:
+    secretName: temporal-sso
+    keys:
+      clientId: TEMPORAL_AUTH_CLIENT_ID
+      clientSecret: TEMPORAL_AUTH_CLIENT_SECRET
+      issuer: OIDC_DISCOVERY_URL # unused: the UI wants the issuer itself (TEMPORAL_AUTH_PROVIDER_URL)
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: temporal-web
+  namespace: factory8
+spec:
+  entryPoints:
+    - web
+    - websecure
+  routes:
+    - kind: Rule
+      match: Host(`temporal.libre.pod`)
+      services:
+        - name: temporal-web
+          port: 8080

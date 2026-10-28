@@ -34,3 +34,24 @@ spec:
     creationPolicy: Owner
     deletionPolicy: Retain
     name: postgres
+---
+# The cluster's root CA, so Temporal's UI trusts id.libre.pod (deploy/web.yaml).
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: step-certificates-certs
+  namespace: factory8
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    name: step-certificates-certs
+    creationPolicy: Owner
+    deletionPolicy: Retain
+  data:
+    - secretKey: root_ca.crt
+      remoteRef:
+        key: apps/step-ca
+        property: root_ca.crt
