@@ -151,6 +151,9 @@ Diagram: `docs/site/m1-run.svg` (source `m1-run.d2`).
 - Both datastores use `pluginName: postgres12` at `postgres:5432`, with the `postgres` user from the Secret.
 - The chart's hook job creates the `temporal` and `temporal_visibility` databases (`createDatabase: true`, its default) and manages the schema.
 - One replica per service, `numHistoryShards: 4` (it can't be changed after the first install), and the Web UI is on by default.
+- **Built (task 1.5, 2026-10-28):** `deploy/postgres.yaml`, `deploy/temporal.values.yaml`, and the Secret `postgres` synced by an ExternalSecret from OpenBao (`apps/factory8-postgres`, key `POSTGRES_PASSWORD`). Learned:
+  - The chart doesn't create the `default` namespace unless `server.config.namespaces.create: true`; its hook job then does.
+  - On the first install, frontend and the server's worker restart once each ("failed to initialize current cluster metadata"), racing each other on the empty database; they're steady after that.
 - **Rejected:** Elasticsearch or OpenSearch for visibility (overkill), and the old `auto-setup` image.
 
 **Decided (2026-10-23): the rest of D4, as proposed.** From chart research and the 4.3.1 source; nothing tried on the cluster yet:
@@ -168,6 +171,7 @@ Diagram: `docs/site/m1-run.svg` (source `m1-run.d2`).
 - **Worker:** an image built with Nix (Node + the worker code), imported with `ctr` like the project image, running as a Deployment.
 
 **Risk:** Postgres on NFS. There's no `local-path` StorageClass on the cluster; accept NFS for the POC.
+- `strategy: Recreate` only covers rollouts. Deleting the Postgres pod makes the ReplicaSet start a new one before the old one stops, and `ReadWriteOnce` doesn't stop two pods on one node from sharing the volume. Both then run in one data directory, which broke the first initdb (task 1.5). To restart Postgres, scale it to 0 and back to 1.
 
 ### D5. `f8 run <issue>`
 

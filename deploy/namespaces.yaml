@@ -1,3 +1,9 @@
+# Temporal, Postgres and the worker (M1 design D2)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: factory8
+---
 # Runs' sandboxes: one PVC and one Kata pod per run (M1 design D2)
 apiVersion: v1
 kind: Namespace
