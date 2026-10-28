@@ -15,3 +15,22 @@ spec:
     creationPolicy: Owner
     deletionPolicy: Retain
     name: f8-sandbox
+---
+# Postgres's POSTGRES_PASSWORD; Temporal reads it too (M1 design D4)
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: postgres-settings
+  namespace: factory8
+spec:
+  dataFrom:
+  - extract:
+      key: apps/factory8-postgres
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    creationPolicy: Owner
+    deletionPolicy: Retain
+    name: postgres

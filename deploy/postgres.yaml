@@ -1,0 +1,42 @@
+# Temporal's database: one plain Postgres, no operator (M1 design D4). Its password is in the Secret `postgres`.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres
+  namespace: factory8
+spec:
+  storageClassName: nfs-client
+  accessModes: [ReadWriteOnce]
+  resources: { requests: { storage: 10Gi } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: factory8
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: postgres } }
+  template:
+    metadata: { labels: { app: postgres } }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17-alpine
+          envFrom: [{ secretRef: { name: postgres } }]
+          ports: [{ containerPort: 5432 }]
+          volumeMounts: [{ name: data, mountPath: /var/lib/postgresql/data }]
+          readinessProbe: { exec: { command: [pg_isready, -U, postgres] } }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: postgres }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: factory8
+spec:
+  selector: { app: postgres }
+  ports: [{ port: 5432 }]
