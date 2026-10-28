@@ -2,7 +2,8 @@
   "name": "factory8",
   "private": true,
   "workspaces": [
-    "adapter"
+    "adapter",
+    "worker"
   ],
   "scripts": {
     "test": "npm test --workspaces",
