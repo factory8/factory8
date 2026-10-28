@@ -35,7 +35,7 @@ The agent CLI SHALL run as root in the VM and always skip its permission checks,
 - **THEN** Claude Code runs with `--dangerously-skip-permissions` and `IS_SANDBOX=1` instead of refusing to run as root
 
 ### Requirement: POC credentials from a Secret
-The sandbox SHALL get, as environment variables from one Kubernetes Secret: `GH_TOKEN` (scoped to the pilot repos: contents and pull requests, write; issues, read), `ANTHROPIC_BASE_URL` (LiteLLM's in-cluster URL) and `ANTHROPIC_AUTH_TOKEN` (one static LiteLLM virtual key). This is a POC shortcut: the agent can read both and push anywhere the token allows, including `master`. Issue #1 removes them.
+The sandbox SHALL get, as environment variables from one Kubernetes Secret: `GH_TOKEN` (a classic token with `repo` scope, because the pilot repos have different owners and a fine-grained token covers only one; it reaches every repo its user can), `ANTHROPIC_BASE_URL` (LiteLLM's in-cluster URL) and `ANTHROPIC_AUTH_TOKEN` (one static LiteLLM virtual key). This is a POC shortcut: the agent can read both and push anywhere the token allows, including `master`. Issue #1 removes them.
 
 #### Scenario: Agent pushes
 - **WHEN** the agent pushes the run branch

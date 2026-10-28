@@ -1,0 +1,4 @@
+# Factory8's own resources (M1 design D4): kubectl apply -k deploy/
+resources:
+  - namespaces.yaml
+  - eso.yaml
