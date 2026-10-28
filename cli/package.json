@@ -1,0 +1,14 @@
+{
+  "name": "@factory8/cli",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "f8": "src/main.ts"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@temporalio/client": "^1.25.0"
+  }
+}

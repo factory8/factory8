@@ -188,6 +188,7 @@ Diagram: `docs/site/m1-run.svg` (source `m1-run.d2`).
 - **The repo URL:** the CLI keeps only `owner/repo` from the remote and builds `https://github.com/owner/repo`, whatever the remote's form. An SSH remote with a host alias, such as marketplace's `git@github.com-work:librepod/marketplace.git`, works too. The adapter clones over HTTPS with `GH_TOKEN`, and `F8_IMAGES` (D2) is keyed by this URL. GitHub is the only forge in Phase 0.
 - **The run ID:** generated as in D1; on a duplicate workflow ID it picks a new one and starts again.
 - **Ctrl-C:** it only stops `f8 run` waiting; the run carries on. Cancelling a run isn't in M1, and `f8 watch` comes in M2.
+- **Built (task 1.7, 2026-10-28):** `packages.f8` in `flake.nix` wraps `cli/src/main.ts` with the worker image's npm build, so `nix run` works from any clone. On a throwaway issue, `f8 run` printed the summary ending with the draft PR's URL in about 56 s: the PR had the issue's title, `Run:` and `Fixes #`, one commit with the `Factory8-Run` trailer, and Claude Code added its own `Generated with` line to the body.
 
 ### D6. The draft PR
 

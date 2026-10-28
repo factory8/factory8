@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": [
     "adapter",
-    "worker"
+    "worker",
+    "cli"
   ],
   "scripts": {
     "test": "npm test --workspaces",
