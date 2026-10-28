@@ -11,7 +11,7 @@ Factory8 can't build itself yet. M1 is the thinnest loop that lets it: a GitHub 
 - Sandboxes on the pilot cluster: Kata, an image built from the repo's Nix dev shell (PRJ-8, SBX-16, A14), the adapter as the main process, an NFS PVC at `/f8`, and the POC credentials from a Secret (#1).
 - Claude Code reaches models through LiteLLM (AGT-10, A13).
 - Temporal and its own Postgres on the pilot cluster (PLT-1).
-- The adapter is used as built (`agent-adapter` spec).
+- The adapter is used as built (`agent-adapter` spec), except that a cancel now stops the agent's whole process group.
 
 Session logs stay on the run's PVC after its sandbox is deleted (AGT-11). Not in M1: live progress (M2), waiting for answers (M3; a question fails the run), retries (M4), and hardening (`docs/plans/poc.md`).
 
@@ -24,7 +24,7 @@ Session logs stay on the run's PVC after its sandbox is deleted (AGT-11). Not in
 - `f8-cli`: the `f8` command; M1 adds `f8 run` (PLT-5).
 
 ### Modified Capabilities
-None.
+- `agent-adapter`: a cancel stops every process the agent started, not only the CLI.
 
 ## Impact
 
