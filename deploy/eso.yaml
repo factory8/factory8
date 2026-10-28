@@ -1,0 +1,17 @@
+apiVersion: external-secrets.io/v1
+kind: ExternalSecret
+metadata:
+  name: f8-sandbox-settings
+  namespace: f8-sandboxes
+spec:
+  dataFrom:
+  - extract:
+      key: apps/f8-sandbox
+  refreshInterval: 5m
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: openbao
+  target:
+    creationPolicy: Owner
+    deletionPolicy: Retain
+    name: f8-sandbox

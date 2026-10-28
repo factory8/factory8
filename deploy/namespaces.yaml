@@ -1,0 +1,5 @@
+# Runs' sandboxes: one PVC and one Kata pod per run (M1 design D2)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: f8-sandboxes

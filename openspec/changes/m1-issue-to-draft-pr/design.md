@@ -17,7 +17,7 @@ See proposal.md for why. The adapter is built and tested on a host (`agent-adapt
 | Fact | Answer |
 |---|---|
 | Is the agent-sandbox controller installed? Which version, and does it include the SandboxTemplate/SandboxClaim extensions? How is a Sandbox reached: a Service, an FQDN or the pod IP? | Not installed (latest release v1.0.8, API `v1beta1`), and no longer needed: dropped on 2026-10-23 in favour of plain Kata pods (D2) |
-| Is Kata installed? | Yes (task 1.1, 2026-10-25): kata-deploy 4.3.1 with `deploy/kata-deploy.values.yaml` (D4), shims `qemu` and `qemu-runtime-rs`. RuntimeClass `kata` uses `kata-qemu-runtime-rs`. The guest kernel is 6.18.56, the host's 6.12.93. A VM gets 1 vCPU and about 1.9 GB by default, and the RuntimeClass adds 250m CPU and 320Mi of overhead. A pod starts in about 3 s once its image is cached, against about 1.9 s with runc |
+| Is Kata installed? | Yes (task 1.1, 2026-10-25): kata-deploy 4.3.1 from the LibrePod marketplace app (D4), shims `qemu` and `qemu-runtime-rs`. RuntimeClass `kata` uses `kata-qemu-runtime-rs`. The guest kernel is 6.18.56, the host's 6.12.93. A VM gets 1 vCPU and about 1.9 GB by default, and the RuntimeClass adds 250m CPU and 320Mi of overhead. A pod starts in about 3 s once its image is cached, against about 1.9 s with runc |
 | What else is on the pilot cluster? | It moved on 2026-10-25 to the user's stable node; the first one gets wiped for other work. Single-node k3s v1.34.12 (containerd 2.2.7) on NixOS 25.11, amd64, 4 CPUs and 32 GB. StorageClass `nfs-client` (reclaim policy `Retain`) is the only one, and it isn't marked as the default, so a PVC must name it. Flux manages the cluster (`flux-system`). cert-manager, OpenBao and external-secrets are installed, next to the user's other production services |
 | How does NFS behave inside the VM? | The PVC reaches the VM over virtiofs; on the host it's NFS v4.2, served by the node itself. There's no root squash: root writes, `chown`s, `chmod`s, symlinks and renames, and its files are `0:0` on the share |
 | Does a new PVC with a deleted PVC's name get its old files back? | Yes. The class has `pathPattern: ${.PVC.namespace}/${.PVC.name}` and `onDelete: retain`, so the new PVC gets a new PV but the same directory. The old PV stays `Released` until it's deleted by hand |
@@ -135,7 +135,7 @@ Diagram: `docs/site/m1-run.svg` (source `m1-run.d2`).
 **Decided (2026-10-23): everything in `deploy/`, using vendor Helm charts where they're worth it.**
 - **Third-party components** come from their vendors' Helm charts, installed by hand with `helm upgrade --install` and one values file per chart in `deploy/`.
 - **Factory8's own resources** are plain YAML in `deploy/`, applied with `kubectl apply -k`: namespaces, RBAC, Postgres and the worker.
-- **LiteLLM** is the exception: it's installed from the LibrePod marketplace UI.
+- **LiteLLM and Kata** are the exceptions: they're LibrePod marketplace apps, installed from its UI and managed by Flux. Factory8 only uses them (LiteLLM's Service, the `kata` RuntimeClass) and keeps no copy of their values.
 - **Why:** vendor charts are maintained upstream, so we don't maintain their manifests ourselves. One folder, applied by hand, is the smallest setup that works.
 - **Rejected for now:** our own chart, or Flux, even though Flux already manages the cluster. Later we'll wrap `deploy/` into a chart or something similar.
 
@@ -154,8 +154,8 @@ Diagram: `docs/site/m1-run.svg` (source `m1-run.d2`).
 - **Rejected:** Elasticsearch or OpenSearch for visibility (overkill), and the old `auto-setup` image.
 
 **Decided (2026-10-23): the rest of D4, as proposed.** From chart research and the 4.3.1 source; nothing tried on the cluster yet:
-- **Kata: the `kata-deploy` chart** (4.3.1, `oci://ghcr.io/kata-containers/kata-deploy-charts/kata-deploy`).
-  - Values: `k8sDistribution: k3s` and `runtimeClasses.createDefault: true`, which gives a RuntimeClass `kata`.
+- **Kata: the `kata-deploy` chart** (4.3.1, `oci://ghcr.io/kata-containers/kata-deploy-charts/kata-deploy`), which the LibrePod marketplace app installs (2026-10-27; it was going to be ours).
+  - Values (the app's): `k8sDistribution: k3s` and `runtimeClasses.createDefault: true`, which gives a RuntimeClass `kata`.
   - With k3s now at v1.34.12, the node has the containerd drop-in import this chart needs; it arrived in v1.34.6.
   - Known effects: it installs its own Kata binaries into `/opt/kata`, leaving the node's NixOS `kata-runtime` unused, and it restarts k3s once, which briefly takes the API down. It finds `modprobe` only in FHS paths, which matters only if the KVM and vhost modules aren't already loaded.
   - **An earlier spike on a NixOS laptop** (k3s 1.35, chart 3.31.0) hit three bugs. Reading the 4.3.1 source, all three look fixed, and task 1.1 confirmed it on the pilot cluster (2026-10-25): the install restarted k3s in 12 s without crash-looping (A), the drop-in survived a later k3s restart (B), and Kata pods run (C):
@@ -207,6 +207,8 @@ Diagram: `docs/site/m1-run.svg` (source `m1-run.d2`).
 - **`F8_MODEL` on the pilot cluster:** `glm-5.3`, through LiteLLM (task 1.2, 2026-10-25). Claude Code needs only `--model` for it: a step on the host with just `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN` made 4 `/v1/messages` calls, all to that model, and pushed its commit in 27s.
 - **Constants, not settings:** the sandbox namespace `f8-sandboxes` (D2) and the adapter port 7070.
 - **Sandbox:** `GH_TOKEN` and LiteLLM's URL and key come from the Secret (`sandbox` spec).
+  - **Built (task 1.4, 2026-10-28):** the Secret `f8-sandbox` in `f8-sandboxes` is synced by an ExternalSecret (`deploy/eso.yaml`) from the cluster's OpenBao, path `apps/f8-sandbox`, through its ClusterSecretStore `openbao`. The values never touch the repo; `ANTHROPIC_BASE_URL` is `http://litellm.litellm:4000`.
+  - A Kata pod from D2's spec became Ready about 5 s after it was created, and a step `curl`ed from a runc pod pushed `f8/p14smk` with the `Factory8-Run` trailer in about 40 s on `glm-5.3`. The agent ran as root (`id -u` = 0) with `IS_SANDBOX=1` in the guest kernel (6.18.56), and its session file stayed on the PVC. `k3s ctr -n k8s.io images import` names the image `docker.io/library/factory8-sandbox:<hash>`, which is where kubelet looks for `factory8-sandbox:<hash>`.
 
 ## Risks / Trade-offs
 
