@@ -5,21 +5,9 @@ import { execFile, spawn, type ChildProcess } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { promisify } from 'node:util';
+import type { EventBody, StepEvent, StepRequest } from './types.ts';
 
-interface StepRequest {
-  stepId: string;
-  runId: string;
-  prompt: string;
-  profile: { vendor: 'claude-code'; model: string; effort?: string };
-  repo: { url: string; branch: string };
-}
 interface AnswerRequest { answer: string }
-type EventBody =
-  | { type: 'progress'; text: string }
-  | { type: 'exit'; status: 'done'; summary: string }
-  | { type: 'exit'; status: 'failed'; reason: string }
-  | { type: 'exit'; status: 'needs_input'; question: string };
-type StepEvent = { seq: number; at: string; stepId: string } & EventBody;
 
 const ROOT = process.env.F8_ROOT ?? '/f8';
 const WORK = `${ROOT}/work`, HOME = `${ROOT}/home`, STATE = `${ROOT}/state`;
