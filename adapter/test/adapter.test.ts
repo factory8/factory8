@@ -1,7 +1,7 @@
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -16,6 +16,7 @@ prompt=$(cat)
 echo '{"type":"system","subtype":"init","session_id":"s1"}'
 case "$*" in *--resume*) printf '{"type":"result","result":"resumed with %s"}\\n' "$prompt"; exit 0;; esac
 case "$prompt" in *ASK*) f8-ask "Which DB?" >/dev/null; exit 0;; esac
+case "$prompt" in *SLOW*) sleep 300 >/dev/null 2>&1 & echo $! > "$F8_ROOT/sleep.pid"; wait; exit 0;; esac
 echo '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"git commit -m work"}}]}}'
 echo x > f && git add f && git commit -qm work && git push -q origin HEAD
 echo '{"type":"result","result":"did it"}'
@@ -45,7 +46,7 @@ async function adapter(port: number) {
       if (seen.at(-1)?.type === 'exit') return seen;
     }
   }
-  return { post, untilExit };
+  return { post, untilExit, root };
 }
 
 const step = (runId: string, prompt: string) => ({
@@ -72,4 +73,17 @@ test('a question exits needs_input and the answer resumes the session', async ()
   assert.equal(await a.post('/steps/run2.build.1/answer', { answer: 'Postgres' }), 202);
   const [done] = await a.untilExit('run2.build.1', asked.seq);
   assert.deepEqual([done.status, done.summary], ['done', 'resumed with Postgres']);
+});
+
+test('cancel stops the agent and the commands it started', async () => {
+  const a = await adapter(17073);
+  await a.post('/steps', step('run3', 'SLOW work'));
+  while (!existsSync(`${a.root}/sleep.pid`)) await new Promise(r => setTimeout(r, 50));
+  const pid = Number(readFileSync(`${a.root}/sleep.pid`, 'utf8'));
+  assert.equal(await a.post('/steps/run3.build.1/cancel', {}), 202);
+  const [exit] = await a.untilExit('run3.build.1');
+  assert.deepEqual([exit.status, exit.reason], ['failed', 'cancelled']);
+  const alive = () => { try { return process.kill(pid, 0); } catch { return false; } };
+  for (let i = 0; i < 20 && alive(); i++) await new Promise(r => setTimeout(r, 50));
+  assert.equal(alive(), false, 'the agent\'s child outlived the cancel');
 });

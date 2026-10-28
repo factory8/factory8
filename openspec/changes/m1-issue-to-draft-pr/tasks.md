@@ -16,7 +16,7 @@ The adapter (`f8-adapter` + `f8-ask`, the old task 1.0) is done: see the `agent-
 - [ ] 1.7 `f8 run <issue>` in `cli/` (after 1.6, 1.D; design D5, D6). Done when: it builds the repo URL from `origin` whatever its form, renders the task prompt for the issue, starts the workflow under a new run ID and prints the agent's summary, which ends with the draft PR URL
 - [ ] 1.8 First dogfooded run (after 1.7). Done when: an issue on factory8/factory8 becomes a draft PR through `f8 run`, and we merge it
 - [ ] 1.9 Pilot run on `librepod/marketplace` (after 1.8). Done when: the same works on the pilot repo. Its `shell.nix` needs Node, and k3d needs Docker in the VM
-- [ ] 1.10 Adapter: cancel kills the agent's whole process group (after none; before 1.6). Done when: `claude` is spawned in its own process group, cancel sends SIGTERM to the group, then SIGKILL after a grace period, and a test shows a child process of the agent doesn't outlive a cancel
+- [x] 1.10 Adapter: cancel kills the agent's whole process group (after none; before 1.6). Done when: `claude` is spawned in its own process group, cancel sends SIGTERM to the group, then SIGKILL after a grace period, and a test shows a child process of the agent doesn't outlive a cancel. Passed 2026-10-28; the grace period is 10 s
 
 ## Workflow follow-up
 

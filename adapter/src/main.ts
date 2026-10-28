@@ -76,6 +76,7 @@ function run(r: StepRequest, args: string[], prompt: string, fallback?: () => vo
     '--model', r.profile.model, ...(r.profile.effort ? ['--effort', r.profile.effort] : []), ...args], {
     cwd: WORK,
     env: { ...process.env, HOME, IS_SANDBOX: '1' }, // IS_SANDBOX lets --dangerously-skip-permissions run as root
+    detached: true, // its own process group, so a cancel reaches the commands it starts
   });
   child = c;
   c.stdin.end(prompt);
@@ -170,8 +171,11 @@ const server = createServer(async (q, s) => {
 
     if (action === 'cancel' && q.method === 'POST') {
       if (child && req?.stepId === id) {
+        const c = child;
+        const kill = (sig: NodeJS.Signals) => { try { process.kill(-c.pid!, sig); } catch {} }; // the group may be gone before `close`
         cancelled = true;
-        child.kill('SIGTERM');
+        kill('SIGTERM');
+        setTimeout(() => { if (child === c) kill('SIGKILL'); }, 10_000).unref();
       }
       return send(202);
     }
