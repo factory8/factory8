@@ -80,7 +80,8 @@
             kubectl
             kubernetes-helm # deploy/'s vendor charts
             d2
-            python3 # serves docs/site
+            uv # runs all Python (AGENTS.md)
+            python3 # uv's interpreter; serves docs/site
           ];
         };
       });

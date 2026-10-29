@@ -11,7 +11,7 @@ Factory8 is a self-hosted AI-native software factory. Temporal workflows, writte
 
 ## Environment
 
-`nix develop` gives you Node 24 LTS, the Temporal CLI, kubectl, helm, d2 and python3. Node runs the TypeScript directly (type stripping, so erasable syntax only); there is no build step.
+`nix develop` gives you Node 24 LTS, the Temporal CLI, kubectl, helm, d2, and uv with python3. Node runs the TypeScript directly (type stripping, so erasable syntax only); there is no build step.
 
 - `npm test`: tests (`node --test`), inside the dev shell: the worker's tests start its `temporal`.
 - `npm run typecheck`: `tsc`, no emit.
@@ -34,12 +34,13 @@ Factory8 is a self-hosted AI-native software factory. Temporal workflows, writte
 
 `docs/site/PRD.md` is a symlink, so there's nothing to copy. `docs/site/index.html` and `loop`/`governance`/`maintain.d2` summarize the SDLC playbook, not the PRD, so leave them alone.
 
-To serve the site: `python3 -m http.server 8080 --directory docs/site`.
+To serve the site: `uv run python -m http.server 8080 --directory docs/site`.
 
 ## Rules
 
 - Phase 0: build the smallest thing that works. No speculative config, options or abstractions.
 - POC first: don't design security hardening into the POC. List each gap under "Not in the POC" in `docs/plans/poc.md` (#1 is on GitHub).
 - Never commit credentials or client data.
+- Never run Python directly (`python`, `python3`, `pip`): use `uv`, as in `uv run python …`, and `uv run --with <pkg> …` for a one-off dependency.
 - Don't use beads (`bd`): it was removed from this repo on 2026-10-23.
 - OpenSpec is how we track our own work, not part of the product. It never changes the PRD on its own.
