@@ -67,7 +67,7 @@ The proposal's "Not in M5" lists the rest.
 
 ### D3. The review verdict is the summary's last line
 
-**Proposed:** the review prompt asks the agent to end its final message with `Verdict: ready` or `Verdict: changes`. The workflow reads the last non-empty line of the summary. Anything else fails the run with `no_verdict`.
+**Proposed:** the review prompt asks the agent to end its final message with `Verdict: ready` or `Verdict: changes`. The workflow reads the last non-empty line of the summary, ignoring markdown's `*`, `` ` `` and `_`, since models often bold or quote the line. Anything else fails the run with `no_verdict`.
 - **On `ready`,** the reviewer has already run `gh pr ready` (the worker makes no forge calls, M1 D1), and the run succeeds.
 - **Why:** the adapter's `done` exit already carries the summary, so the verdict needs no contract change. The review state on GitHub can't carry it (see Context).
 - **Agent output is untrusted (invariant 8):** a wrong verdict at worst ends the loop early or runs one more round, and the human gate at the PR catches both.

@@ -15,6 +15,7 @@ before(async () => {
 after(() => env?.teardown());
 
 // Runs sdlcWorkflow against mocked activities; `exits` maps a stage to its exit event.
+let n = 0;
 async function sdlc(exits: Record<string, { status: string; summary?: string; reason?: string; question?: string }>) {
   const calls: unknown[][] = [];
   const activities = {
@@ -32,7 +33,6 @@ async function sdlc(exits: Record<string, { status: string; summary?: string; re
     connection: env.nativeConnection, taskQueue: 'test', activities,
     workflowsPath: new URL('../src/workflows.ts', import.meta.url).pathname,
   });
-  let n = 0;
   const result = await worker.runUntil(env.client.workflow.execute('sdlcWorkflow', {
     args: [{ runId: 'k3x9qa', repo: 'https://github.com/o/r', issue: 12 }],
     taskQueue: 'test', workflowId: `k3x9qa-${++n}-${Object.keys(exits).join('.')}`,
@@ -91,6 +91,12 @@ test('a failed build deletes its sandbox and no review starts', async () => {
   assert.equal((result.cause as Error).message, 'claude exited 1');
   assert.equal(seq(calls).at(-1), 'delete build');
   assert.ok(!seq(calls).some(s => s.includes('review')));
+});
+
+test('a verdict wrapped in markdown still counts', async () => {
+  const summary = 'Clean.\n`**Verdict: ready** · https://github.com/o/r/pull/13`';
+  const { result } = await sdlc({ 'review-1': { status: 'done', summary } });
+  assert.equal((result as Exit & { summary: string }).summary, summary);
 });
 
 test('a review summary with no verdict fails the run with no_verdict', async () => {
