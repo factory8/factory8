@@ -38,7 +38,7 @@ test('the worker exits at start when F8_REVIEW_MODEL is missing or equals F8_MOD
   const base = { ...process.env };
   delete base.F8_MODEL, delete base.F8_REVIEW_MODEL;
   for (const env of [base, { ...base, F8_MODEL: 'glm-5.3', F8_REVIEW_MODEL: 'glm-5.3' }]) {
-    const p = spawnSync('node', ['src/main.ts'], { env, encoding: 'utf8' });
+    const p = spawnSync('node', [new URL('../src/main.ts', import.meta.url).pathname],{ env, encoding: 'utf8' });
     assert.notEqual(p.status, 0, JSON.stringify(env));
     assert.match(p.stderr, /F8_REVIEW_MODEL/);
   }
