@@ -10,11 +10,12 @@ const kc = new k8s.KubeConfig();
 kc.loadFromDefault();
 const core = kc.makeApiClient(k8s.CoreV1Api);
 const ignore = (code: number) => (e: { code?: number }) => { if (e.code !== code) throw e; };
-const labels = (runId: string) => ({ app: 'f8-sandbox', 'f8/run': runId });
+const labels = (runId: string, stage: string) => ({ app: 'f8-sandbox', 'f8/run': runId, 'f8/step': stage });
 
 // The project template: the admin-owned settings of every sandbox (DEP-6).
-export const sandboxPod = (runId: string, image: string): k8s.V1Pod => ({
-  metadata: { name: `f8-${runId}`, labels: labels(runId) },
+// The name is f8-<runId>-<stage>, at most 18 chars: runIds are 6, stages top out at review-3 (M5 D2).
+export const sandboxPod = (runId: string, stage: string, image: string): k8s.V1Pod => ({
+  metadata: { name: `f8-${runId}-${stage}`, labels: labels(runId, stage) },
   spec: {
     runtimeClassName: 'kata',
     containers: [{
@@ -26,20 +27,20 @@ export const sandboxPod = (runId: string, image: string): k8s.V1Pod => ({
       volumeMounts: [{ name: 'f8', mountPath: '/f8' }],
       readinessProbe: { tcpSocket: { port: PORT } },
     }],
-    volumes: [{ name: 'f8', persistentVolumeClaim: { claimName: `f8-${runId}` } }],
+    volumes: [{ name: 'f8', persistentVolumeClaim: { claimName: `f8-${runId}-${stage}` } }],
   },
 });
 
-// Creates the run's PVC and pod, and returns the pod's IP once it's Ready.
-export async function createSandbox(runId: string, repo: string): Promise<string> {
+// Creates the step's PVC and pod, and returns the pod's IP once it's Ready.
+export async function createSandbox(runId: string, stage: string, repo: string): Promise<string> {
   const image = JSON.parse(process.env.F8_IMAGES ?? '{}')[repo];
   if (!image) throw ApplicationFailure.nonRetryable(`no image for ${repo}`);
-  const name = `f8-${runId}`;
+  const name = `f8-${runId}-${stage}`;
   await core.createNamespacedPersistentVolumeClaim({ namespace: NS, body: {
-    metadata: { name, labels: labels(runId) },
+    metadata: { name, labels: labels(runId, stage) },
     spec: { storageClassName: 'nfs-client', accessModes: ['ReadWriteOnce'], resources: { requests: { storage: '10Gi' } } },
   } }).catch(ignore(409));
-  await core.createNamespacedPod({ namespace: NS, body: sandboxPod(runId, image) }).catch(ignore(409));
+  await core.createNamespacedPod({ namespace: NS, body: sandboxPod(runId, stage, image) }).catch(ignore(409));
   for (;;) {
     const pod = await core.readNamespacedPod({ name, namespace: NS });
     if (pod.status?.conditions?.some(c => c.type === 'Ready' && c.status === 'True')) return pod.status.podIP!;
@@ -47,9 +48,11 @@ export async function createSandbox(runId: string, repo: string): Promise<string
   }
 }
 
-// Without a profile, the step gets the installation default (D8).
-export async function startStep(ip: string, r: Omit<StepRequest, 'profile'> & Partial<Pick<StepRequest, 'profile'>>) {
-  const step: StepRequest = { ...r, profile: r.profile ?? { vendor: 'claude-code', model: process.env.F8_MODEL! } };
+// The workflow names the role, the activity knows the settings; the reviewer model differs (M5 D7, DEP-11).
+export type Role = 'author' | 'reviewer';
+export async function startStep(ip: string, r: Omit<StepRequest, 'profile'>, role: Role) {
+  const model = (role === 'reviewer' ? process.env.F8_REVIEW_MODEL : process.env.F8_MODEL)!;
+  const step: StepRequest = { ...r, profile: { vendor: 'claude-code', model } };
   const res = await fetch(`http://${ip}:${PORT}/steps`, { method: 'POST', body: JSON.stringify(step) });
   if (res.status !== 202) throw ApplicationFailure.nonRetryable(`adapter answered ${res.status}: ${await res.text()}`);
 }
@@ -69,6 +72,6 @@ export async function pollStep(ip: string, stepId: string): Promise<Exit> {
 }
 
 // Deletes only the pod: the PVC keeps the session logs (AGT-11).
-export async function deleteSandbox(runId: string) {
-  await core.deleteNamespacedPod({ name: `f8-${runId}`, namespace: NS }).catch(ignore(404));
+export async function deleteSandbox(runId: string, stage: string) {
+  await core.deleteNamespacedPod({ name: `f8-${runId}-${stage}`, namespace: NS }).catch(ignore(404));
 }
