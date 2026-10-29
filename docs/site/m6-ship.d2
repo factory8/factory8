@@ -1,0 +1,128 @@
+vars: {d2-config: {layout-engine: elk}}
+direction: down
+
+title: "M6 ship run: f8 run --flow ship 12 → a ready PR (the human merges)\nProposed in openspec/changes/m6-ship-workflow. Temporal holds the flow and its state; git holds only the work (design.md, tests, code, PR comments).\nBlue: an agent step in its own sandbox f8-<runId>-<stage>-<n>, running /factory8:<skill> and ending with a JSON result line · grey: workflow code or an activity\npurple: the engineer · dashed orange: a route back · orange: an end, which also runs finish (the PR stays a draft) · red: the run fails with no finish" {
+  near: top-center
+  shape: text
+  style.font-size: 18
+}
+
+classes: {
+  step: {style: {fill: "#e3f2fd"; stroke: "#1e88e5"; border-radius: 8}}
+  wf: {style: {fill: "#eceff1"; stroke: "#546e7a"}}
+  decide: {shape: diamond; style: {fill: "#eceff1"; stroke: "#546e7a"}}
+  human: {style: {fill: "#f3e5f5"; stroke: "#8e24aa"}}
+  ok: {style: {fill: "#e8f5e9"; stroke: "#43a047"; bold: true}}
+  stop: {style: {fill: "#fff8e1"; stroke: "#fb8c00"; bold: true; border-radius: 16}}
+  fail: {style: {fill: "#ffebee"; stroke: "#e53935"; bold: true}}
+  back: {style: {stroke: "#fb8c00"; stroke-dash: 4}}
+  end: {style: {stroke: "#fb8c00"}}
+}
+
+cli: "f8 run --flow ship 12 (engineer's laptop)\nstarts shipWorkflow {runId, repo, issue}; every 10 s it reads the state query\n(stage, attempt, risk, PR, open question, each step's model and result)\nand prints new stages, and questions with the f8 answer line" {class: human}
+config: "shipConfig (activity, no sandbox)\nreads F8_BANDS and F8_PLUGIN once per run;\nevery step loads the plugin as of the run's start time" {class: wf}
+bad_bands: "bad_bands: a key is missing, or review / diagnose\nuses an author's model (DEP-11); fails before any sandbox" {class: fail}
+
+cli -> config
+config -> bad_bands {style.stroke: "#e53935"}
+config -> contract.design
+
+contract: "Contract: graded before any code (2 grades at most)" {
+  design: "design-n\n/factory8:design\ncommits .factory8/runs/<runId>/design.md,\nopens the draft PR, sets risk low | high" {class: step}
+  design_review: "design-review-n\n/factory8:review mode=design\nmay raise the risk to high" {class: step}
+  acceptance: "acceptance-n\n/factory8:acceptance\nfailing tests for each acceptance row,\nno product code" {class: step}
+  tests_review: "tests-review-n\n/factory8:review mode=tests\neach test must be able to fail" {class: step}
+  too_big_1: "too_big" {class: stop}
+  too_big_2: "too_big" {class: stop}
+  escalated_1: "escalated" {class: stop}
+  escalated_2: "escalated" {class: stop}
+
+  design -> design_review: "pushed: sha, pr, risk"
+  design <- design_review: "1st DO_NOT_SHIP:\nfix with the findings" {class: back}
+  design_review -> acceptance: "SHIP"
+  acceptance -> tests_review: "pushed: sha, tests"
+  acceptance <- tests_review: "1st DO_NOT_SHIP:\nfix with the findings" {class: back}
+
+  design -> too_big_1: "stopped C:\nmore than one change" {class: end}
+  design_review -> escalated_1: "2nd DO_NOT_SHIP" {class: end}
+  acceptance -> too_big_2: "stopped C" {class: end}
+  tests_review -> escalated_2: "2nd DO_NOT_SHIP" {class: end}
+}
+
+loop: "Implement loop (every new loop starts again at ladder profile 1)" {
+  implement: "implement-n\n/factory8:implement\nattempt k runs on F8_BANDS.implement[k]\n(profile 1 → 2 → 3, the last repeats);\na rework gets the blocking findings" {class: step}
+  review: "code-review-n  (risk high: n-a ∥ n-b, two sandboxes)\n/factory8:review mode=code\n1. runs the repo's checks: a failure is a blocker\n2. git diff tests_sha sha -- tests: any diff is critical\n3. ranked findings: only blocker and critical send work back" {class: step}
+  pass: "every reviewer\nSHIP?" {class: decide}
+  fails: "failed attempts\nin this loop" {class: decide}
+  diagnose: "diagnose-n\n/factory8:diagnose\nexactly one cause A–I, with evidence,\nfrom the attempt history" {class: step}
+  tiebreak: "tiebreak-n\n/factory8:review mode=code\none more reviewer on the last commit" {class: step}
+  too_big_3: "too_big" {class: stop}
+  too_big_4: "too_big" {class: stop}
+  escalated_3: "escalated:\nattempts_exhausted" {class: stop}
+  parked_1: "parked" {class: stop}
+
+  implement -> review: "pushed: sha"
+  review -> pass
+  pass -> fails: "no"
+  implement <- fails: "1: rework on\nthe next profile" {class: back}
+  fails -> diagnose: "2"
+  implement <- diagnose: "D: the fix list is exact →\none more attempt, once per loop" {class: back}
+  diagnose -> tiebreak: "F: implementer and\nreviewer dispute a finding"
+
+  implement -> too_big_3: "stopped C" {class: end}
+  fails -> escalated_3: "3, after D's\nextra attempt" {class: end}
+  diagnose -> too_big_4: "C" {class: end}
+  diagnose -> parked_1: "H: the harness\nI: reviewers contradict" {class: end}
+}
+
+contract.tests_review -> loop.implement: "SHIP"
+
+wait: "wait for the answer signal, with no pod\nthe diagnoser posted the question on the PR;\nf8 answer <run> \"…\" sends the signal" {class: human}
+bounce: "route back\n(2 per run)" {class: decide}
+escalated_4: "escalated:\nbounces_exhausted" {class: stop}
+
+contract.acceptance -> bounce: "stopped B: the design\ncan't be tested as written" {class: back}
+loop.implement -> bounce: "stopped A (tests wrong) or B (false premise);\nan unknown cause counts as B" {class: back}
+loop.diagnose -> bounce: "A, B, G" {class: back}
+loop.diagnose -> wait: "E: needs a\nhuman decision"
+loop.tiebreak -> bounce: "not enough SHIPs:\nroute as B" {class: back}
+wait -> bounce: "the answer:\nroute as B with it" {class: back}
+contract.acceptance <- bounce: "A: acceptance-n+1 with the note,\nthen the tests review and a new loop" {class: back}
+contract.design <- bounce: "B, G, E: design-n+1 with the note,\nthen both reviews, acceptance and a new loop" {class: back}
+bounce -> escalated_4: "a 3rd route back" {class: end}
+
+ready: "ready" {class: ok}
+loop.pass -> ready: "yes"
+loop.tiebreak -> ready: "its SHIP makes enough"
+
+finish: "finish (runs on every orange end too)\n/factory8:finish\nposts report(state) on the PR, or on the issue if no PR exists:\nthe outcome, each step's model and result, the causes,\nand non-blocking findings as follow-ups; gh pr ready only when ready" {class: step}
+done_ok: "the run succeeds and returns the PR's URL;\nthe PR is ready and unmerged: the human merges or not" {class: ok}
+done_fail: "escalated | too_big | parked: the run fails, non-retryable;\ntype = the outcome, message = cause + note; the PR stays a draft" {class: stop}
+
+ready -> finish
+finish -> done_ok: "ready"
+finish -> done_fail: "any other end" {class: end}
+
+every_step: "Inside every blue box: one step(); finally, deleteSandbox (the pod goes, the PVC stays)" {
+  near: top-right
+  style: {fill: "#fafafa"; stroke-dash: 4}
+  create: "createSandbox\npod + PVC f8-<runId>-<stage>-<n>\n(409, already there: reused)" {class: wf}
+  start: "startStep: POST /steps\nline 1: /factory8:<skill> 12 key=value…\nline 2: one JSON context object\nprofile from F8_BANDS\nplugin {url: F8_PLUGIN, at: run start}" {class: wf}
+  agent: "f8-adapter in the sandbox\nchecks the plugin out as of at, into /f8/plugin;\nclaude -p --plugin-dir …\n--append-system-prompt <preamble>" {class: step}
+  poll: "pollStep\nuntil an exit event" {class: wf}
+  ask: "needs_input (the agent ran f8-ask)\ndelete the pod, keep the PVC;\nstate.question is set; wait for the answer signal" {class: human}
+  resume: "f8 answer → signal\ncreateSandbox again: same name, same PVC;\nanswerStep: POST /answer resumes the session" {class: human}
+  failed: "failed: the run fails at once,\nwith no finish" {class: fail}
+  parse: "parseResult\nthe summary's last line as JSON,\nchecked against the stage's shape" {class: wf}
+  invalid: "parked, cause H" {class: stop}
+  result: "the result goes back\nto the flow" {class: wf}
+
+  create -> start -> agent -> poll
+  poll -> ask: "needs_input"
+  ask -> resume
+  poll <- resume: "the session continues" {class: back}
+  poll -> failed: "failed" {style.stroke: "#e53935"}
+  poll -> parse: "done"
+  parse -> invalid: "missing or invalid" {class: end}
+  parse -> result: "valid"
+}
