@@ -10,9 +10,13 @@ import type { EventBody, StepEvent, StepRequest } from './types.ts';
 interface AnswerRequest { answer: string }
 
 const ROOT = process.env.F8_ROOT ?? '/f8';
-const WORK = `${ROOT}/work`, HOME = `${ROOT}/home`, STATE = `${ROOT}/state`;
+const WORK = `${ROOT}/work`, HOME = `${ROOT}/home`, STATE = `${ROOT}/state`, PLUGIN = `${ROOT}/plugin`;
 const exec = promisify(execFile);
 const git = (...args: string[]) => exec('git', ['-C', WORK, ...args]);
+// shortcut: the token comes from the pod's Secret (sandbox spec), remove with #1.
+const cred = '!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f';
+const clone = (url: string, dir: string, ...cfg: string[]) =>
+  exec('git', ['clone', '-c', `credential.helper=${cred}`, ...cfg, url, dir]);
 
 mkdirSync(STATE, { recursive: true });
 mkdirSync(HOME, { recursive: true });
@@ -37,10 +41,7 @@ Finish with a short summary of what you did.`;
 
 async function checkout(r: StepRequest) {
   if (!existsSync(`${WORK}/.git`)) {
-    // shortcut: the token comes from the pod's Secret (sandbox spec), remove with #1.
-    const cred = '!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f';
-    await exec('git', ['clone', '-c', `credential.helper=${cred}`, '-c', 'user.name=Factory8',
-      '-c', 'user.email=factory8@users.noreply.github.com', r.repo.url, WORK]);
+    await clone(r.repo.url, WORK, '-c', 'user.name=Factory8', '-c', 'user.email=factory8@users.noreply.github.com');
   }
   await git('fetch', 'origin');
   await git('switch', r.repo.branch).catch(() => git('switch', '-c', r.repo.branch));
@@ -49,6 +50,16 @@ async function checkout(r: StepRequest) {
   if (existsSync(`${WORK}/AGENTS.md`) && !existsSync(`${WORK}/CLAUDE.md`)) {
     writeFileSync(`${WORK}/CLAUDE.md`, '@AGENTS.md\n');
     appendFileSync(`${WORK}/.git/info/exclude`, '/CLAUDE.md\n');
+  }
+  if (r.plugin) {
+    // On the PVC, so a resumed step reuses it. Pinned by time, so the steps of a run share a commit.
+    // shortcut: a commit dated before the run's start but pushed after it reaches only later steps; pin a SHA when it bites.
+    if (!existsSync(`${PLUGIN}/.git`)) await clone(r.plugin.url, PLUGIN);
+    const p = (...args: string[]) => exec('git', ['-C', PLUGIN, ...args]);
+    await p('fetch', 'origin');
+    const sha = (await p('rev-list', '-1', '--first-parent', `--before=${r.plugin.at}`, 'origin/HEAD')).stdout.trim();
+    if (!sha) throw new Error(`no commit of ${r.plugin.url} at or before ${r.plugin.at}`);
+    await p('checkout', '--detach', sha);
   }
 }
 
@@ -61,7 +72,9 @@ function describe(tool: { name: string; input?: Record<string, unknown> }) {
 // Runs the CLI once. `fallback` runs instead when a --resume never got its session started.
 function run(r: StepRequest, args: string[], prompt: string, fallback?: () => void) {
   const c = spawn('claude', ['-p', '--output-format', 'stream-json', '--verbose', '--dangerously-skip-permissions',
-    '--model', r.profile.model, ...(r.profile.effort ? ['--effort', r.profile.effort] : []), ...args], {
+    '--model', r.profile.model, ...(r.profile.effort ? ['--effort', r.profile.effort] : []),
+    // A resumed session keeps the system prompt it started with, so the flag there is a no-op (M6 D5 spike).
+    '--append-system-prompt', preamble(r), ...(r.plugin ? ['--plugin-dir', `${PLUGIN}/plugin`] : []), ...args], {
     cwd: WORK,
     env: { ...process.env, HOME, IS_SANDBOX: '1' }, // IS_SANDBOX lets --dangerously-skip-permissions run as root
     detached: true, // its own process group, so a cancel reaches the commands it starts
@@ -95,7 +108,7 @@ function run(r: StepRequest, args: string[], prompt: string, fallback?: () => vo
 
 // Fresh session, or resume the recorded one (a retry on the same PVC, or an answer).
 function start(r: StepRequest, resumeWith: string, extra = '') {
-  const fresh = () => run(r, [], `${preamble(r)}\n\n${r.prompt}${extra}`);
+  const fresh = () => run(r, [], `${r.prompt}${extra}`);
   const session = read('session');
   if (session) run(r, ['--resume', session], resumeWith, fresh);
   else fresh();

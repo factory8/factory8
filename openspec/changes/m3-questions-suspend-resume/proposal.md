@@ -6,6 +6,7 @@ In M1, a run fails when the agent asks a question. M3 lets the run wait for a hu
 
 ## What Changes
 
+- M6 builds the core of this for its ship run: on `needs_input` the workflow deletes the pod, keeps the PVC, waits for an `answer` signal and resumes the step, and `f8 answer` sends the signal. M3's task 3.2 makes M5's run wait the same way, and 3.4 now belongs to M6.
 - On `needs_input`, the workflow posts the question on the issue, suspends the sandbox (deletes its pod, keeps its PVC) and waits for a signal. When the signal arrives, it starts a new pod on the same PVC, POSTs `/answer` to the adapter and polls again.
 - `/answer` on the issue sends the signal; only the owner's comments count.
 - `f8 answer <run> "<text>"` sends the same signal.

@@ -123,7 +123,7 @@ Findings SHALL be ranked `blocker`, `critical`, `high`, `medium` or `low`.
 - **THEN** no rework runs, and the PR's report lists both findings as follow-ups
 
 ### Requirement: Two reviewers for high-risk work
-When the run's risk is `high`, each code review SHALL run two reviewers in parallel, in separate sandboxes, and the attempt SHALL pass only if both return `SHIP`. The next attempt SHALL get the blocking findings of both.
+When the run's risk is `high`, each code review SHALL run two reviewers one after the other, in separate sandboxes, and the attempt SHALL pass only if both return `SHIP`. The next attempt SHALL get the blocking findings of both.
 
 #### Scenario: Split verdict
 - **WHEN** `code-review-1a` returns `SHIP` and `code-review-1b` returns `DO_NOT_SHIP`

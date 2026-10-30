@@ -1,4 +1,4 @@
-# POC plan (Phase 0, M1–M5)
+# POC plan (Phase 0, M1–M6)
 
 **Status:** agreed 2026-10-22 · from PRD v0.6 §8 · tasks tracked in OpenSpec since 2026-10-23
 
@@ -23,14 +23,16 @@
 |---|---|---|
 | M1: issue → sandboxed agent → draft PR (by hand) | `m1-issue-to-draft-pr` | |
 | M5: the SDLC run (plan, build, review/fix, ready PR) | `m5-sdlc-workflow` | 1.8 |
-| M2: live progress and session logs | `m2-progress-and-logs` | M5 |
-| M3: questions with suspend/resume | `m3-questions-suspend-resume` | M5; its spike 3.1 only needs 1.4, so run it early |
-| M4: recovery | `m4-recovery` | M5, 2.2; its cleanup task 4.4 also needs 3.2 |
+| M6: the ship run (design, tests first, graded reviews, ladder, human waits) | `m6-ship-workflow` | M5 |
+| M2: live progress and session logs | `m2-progress-and-logs` | M6 |
+| M3: questions with suspend/resume | `m3-questions-suspend-resume` | M6; its spike 3.1 only needs 1.4, so run it early |
+| M4: recovery | `m4-recovery` | M6, 2.2; its cleanup task 4.4 also needs 3.2 |
 
 ## Not in the POC
 
 **Hardening (POC first):**
 - [#1](https://github.com/factory8/factory8/issues/1): remove credentials from agent sandboxes (ART-4, SBX-5, AGT-6). One way: an egress proxy that adds the tokens on the way out, as Agent Substrate does; kagent's egress gateway swaps a placeholder `Authorization` header for the Secret's value.
+- Gateway enforcement of TST-3: the ship run's code reviewer checks that the acceptance tests are unchanged, so only a prompt stops an implementer editing them. Fix: the git gateway rejects pushes that touch the tests (with #1).
 - Default-deny NetworkPolicy for sandboxes (SBX-3). The pilot cluster's one node also runs the user's other production services, and until this lands a sandbox can reach every in-cluster Service.
 - Egress proxy with allowlist (SBX-4).
 - Backups for Temporal's Postgres and object storage (PLT-2).

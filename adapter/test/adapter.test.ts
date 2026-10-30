@@ -13,6 +13,7 @@ sh('git init -q -b master seed && git -C seed -c user.name=t -c user.email=t@t c
 mkdirSync(`${tmp}/bin`);
 writeFileSync(`${tmp}/bin/claude`, `#!/bin/sh
 prompt=$(cat)
+printf '%s' "$*" > "$F8_ROOT/args"; printf '%s' "$prompt" > "$F8_ROOT/prompt"
 echo '{"type":"system","subtype":"init","session_id":"s1"}'
 case "$*" in *--resume*) printf '{"type":"result","result":"resumed with %s"}\\n' "$prompt"; exit 0;; esac
 case "$prompt" in *ASK*) f8-ask "Which DB?" >/dev/null; exit 0;; esac
@@ -21,6 +22,11 @@ echo '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash"
 echo x > f && git add f && git commit -qm work && git push -q origin HEAD
 echo '{"type":"result","result":"did it"}'
 `, { mode: 0o755 });
+
+// A plugin repo with a commit before 2025 and one after, to pin by time.
+const plugin = (n: number, date: string) =>
+  `echo ${n} > plugin/f && git add . && GIT_COMMITTER_DATE=${date} git -c user.name=t -c user.email=t@t commit -q -m c${n} --date=${date}`;
+sh(`git init -q -b master pseed && cd pseed && mkdir plugin && ${plugin(1, '2020-01-01T00:00:00Z')} && ${plugin(2, '2030-01-01T00:00:00Z')} && cd .. && git clone -q --bare pseed plugin.git`);
 
 const adapters: ChildProcess[] = [];
 after(() => { adapters.forEach(a => a.kill()); });
@@ -86,4 +92,37 @@ test('cancel stops the agent and the commands it started', async () => {
   const alive = () => { try { return process.kill(pid, 0); } catch { return false; } };
   for (let i = 0; i < 20 && alive(); i++) await new Promise(r => setTimeout(r, 50));
   assert.equal(alive(), false, 'the agent\'s child outlived the cancel');
+});
+
+test('the preamble rides the system prompt, and stdin holds the task prompt alone, fresh and resumed', async () => {
+  const a = await adapter(17074);
+  await a.post('/steps', step('run4', 'ASK first'));
+  const [asked] = await a.untilExit('run4.build.1');
+  const args = () => readFileSync(`${a.root}/args`, 'utf8');
+  assert.match(args(), /--append-system-prompt You are working in .*\/work. on branch .f8\/run4./);
+  assert.equal(readFileSync(`${a.root}/prompt`, 'utf8'), 'ASK first');
+  assert.ok(!args().includes('--plugin-dir'));
+  assert.ok(!existsSync(`${a.root}/plugin`));
+  await a.post('/steps/run4.build.1/answer', { answer: 'Postgres' });
+  await a.untilExit('run4.build.1', asked.seq);
+  assert.match(args(), /--append-system-prompt .*--resume s1/s);
+  assert.equal(readFileSync(`${a.root}/prompt`, 'utf8'), 'Postgres');
+});
+
+test('a plugin is cloned, pinned to the commit before "at", and loaded', async () => {
+  const a = await adapter(17075);
+  await a.post('/steps', { ...step('run5', 'do the work'), plugin: { url: `${tmp}/plugin.git`, at: '2025-01-01T00:00:00Z' } });
+  const [, exit] = await a.untilExit('run5.build.1');
+  assert.equal(exit.status, 'done');
+  const old = sh('git --git-dir plugin.git log --format=%H --before=2025-01-01').trim();
+  assert.equal(sh(`git -C ${a.root}/plugin rev-parse HEAD`).trim(), old);
+  assert.ok(readFileSync(`${a.root}/args`, 'utf8').includes(`--plugin-dir ${a.root}/plugin/plugin`));
+});
+
+test('a plugin that can\'t be cloned fails the step with git\'s error', async () => {
+  const a = await adapter(17076);
+  await a.post('/steps', { ...step('run6', 'do the work'), plugin: { url: `${tmp}/nope.git`, at: '2025-01-01T00:00:00Z' } });
+  const [exit] = await a.untilExit('run6.build.1');
+  assert.equal(exit.status, 'failed');
+  assert.match(exit.reason, /checkout failed.*nope\.git/s);
 });
