@@ -3,8 +3,8 @@
 import { execFileSync } from 'node:child_process';
 import { randomInt } from 'node:crypto';
 import { Client, Connection, WorkflowExecutionAlreadyStartedError, WorkflowFailedError } from '@temporalio/client';
-import type { runWorkflow } from '../../worker/src/workflows.ts';
-import { repoUrl, taskPrompt } from './run.ts';
+import type { sdlcWorkflow } from '../../worker/src/workflows.ts';
+import { repoUrl } from './run.ts';
 
 const [cmd, arg] = process.argv.slice(2);
 const issue = Number(arg);
@@ -23,8 +23,8 @@ let handle;
 for (;;) {
   const runId = newId();
   try {
-    handle = await client.workflow.start<typeof runWorkflow>('runWorkflow', {
-      taskQueue: 'factory8', workflowId: runId, args: [{ runId, repo, prompt: taskPrompt(issue, runId) }],
+    handle = await client.workflow.start<typeof sdlcWorkflow>('sdlcWorkflow', {
+      taskQueue: 'factory8', workflowId: runId, args: [{ runId, repo, issue }],
     });
     break;
   } catch (e) {
