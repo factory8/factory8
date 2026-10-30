@@ -126,6 +126,11 @@ The proposal's "Not in M6" lists the rest.
   - `--append-system-prompt` works together with `--resume`.
 
   If stdin doesn't take slash commands, the prompt goes in as the positional argument instead.
+- **Spike result (6.1, 2026-10-30, Claude Code 2.1.311 on the laptop, not the sandbox image's version):**
+  - `/factory8:x 12 a=1` plus a JSON line on stdin, with `--plugin-dir`, ran the skill, and it saw both lines. No positional fallback is needed.
+  - `--append-system-prompt` applies to a fresh session. On `--resume` the flag is ignored and the session keeps the system prompt it started with. A session started without the text doesn't gain it on resume. So the preamble must be on the fresh run; passing it again on resume is harmless. The branch it names doesn't change within a run.
+  - With `disable-model-invocation: true`, a prompt about fruit didn't start a skill whose description matched it.
+  - Re-check on the sandbox image's version at 6.3.
 - **Rejected:** a `skill` field that the adapter renders into a command (AGT-4 translation). There is only one vendor today; the adapter translates when the second one arrives (AGT-2).
 
 ### D6. Structured results

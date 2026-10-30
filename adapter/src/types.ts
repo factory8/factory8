@@ -5,6 +5,7 @@ export interface StepRequest {
   prompt: string;
   profile: { vendor: 'claude-code'; model: string; effort?: string };
   repo: { url: string; branch: string };
+  plugin?: { url: string; at: string }; // a Factory8 plugin repo, pinned to the last commit made at or before `at`
 }
 export type EventBody =
   | { type: 'progress'; text: string }

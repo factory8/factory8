@@ -49,12 +49,37 @@ export async function createSandbox(runId: string, stage: string, repo: string):
 }
 
 // The workflow names the role, the activity knows the settings; the reviewer model differs (M5 D7, DEP-11).
+// A ship step brings its own profile (M6 D1), which wins.
 export type Role = 'author' | 'reviewer';
-export async function startStep(ip: string, r: Omit<StepRequest, 'profile'>, role: Role) {
+export type Profile = { model: string; effort?: string };
+export async function startStep(ip: string, r: Omit<StepRequest, 'profile'> & { profile?: Profile }, role?: Role) {
   const model = (role === 'reviewer' ? process.env.F8_REVIEW_MODEL : process.env.F8_MODEL)!;
-  const step: StepRequest = { ...r, profile: { vendor: 'claude-code', model } };
+  const step: StepRequest = { ...r, profile: { vendor: 'claude-code', ...(r.profile ?? { model }) } };
   const res = await fetch(`http://${ip}:${PORT}/steps`, { method: 'POST', body: JSON.stringify(step) });
   if (res.status !== 202) throw ApplicationFailure.nonRetryable(`adapter answered ${res.status}: ${await res.text()}`);
+}
+
+export async function answerStep(ip: string, stepId: string, answer: string) {
+  const res = await fetch(`http://${ip}:${PORT}/steps/${stepId}/answer`, { method: 'POST', body: JSON.stringify({ answer }) });
+  if (res.status !== 202) throw ApplicationFailure.nonRetryable(`adapter answered ${res.status}: ${await res.text()}`);
+}
+
+export interface Bands { design: Profile; acceptance: Profile; implement: Profile[]; review: Profile; diagnose: Profile; finish: Profile }
+
+// The ship run's settings, read once per run so its history holds them (M6 D9). DEP-11: reviewers aren't authors' models.
+export async function shipConfig(): Promise<{ bands: Bands; plugin: string }> {
+  const bad = (why: string) => ApplicationFailure.nonRetryable(`bad F8_BANDS: ${why}`, 'bad_bands');
+  let b: Bands;
+  try { b = JSON.parse(process.env.F8_BANDS ?? ''); } catch { throw bad('not JSON'); }
+  const one = (p?: Profile) => typeof p?.model === 'string' && p.model !== '';
+  for (const k of ['design', 'acceptance', 'review', 'diagnose', 'finish'] as const)
+    if (!one(b?.[k])) throw bad(`${k} needs a model`);
+  if (!Array.isArray(b.implement) || !b.implement.length || !b.implement.every(one)) throw bad('implement needs a non-empty list of models');
+  const authors = [b.design, b.acceptance, ...b.implement].map(p => p.model);
+  for (const k of ['review', 'diagnose'] as const)
+    if (authors.includes(b[k].model)) throw bad(`${k} model ${b[k].model} is an author model`);
+  if (!process.env.F8_PLUGIN) throw bad('F8_PLUGIN is not set');
+  return { bands: b, plugin: process.env.F8_PLUGIN };
 }
 
 // Long-polls the step's events until its exit event.
