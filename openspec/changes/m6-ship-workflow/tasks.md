@@ -58,7 +58,7 @@
   `npm test` and `npm run typecheck` pass.
 - [x] 6.7 The implement loop (design D7, D8; after 6.6). Done when workflow tests cover:
   - the ladder: attempt 3 on profile 3, and a new loop after a bounce starting again at profile 1;
-  - a risk raised by the design review → two parallel code reviewers, and a split verdict failing the attempt with the `DO_NOT_SHIP` findings passed on;
+  - a risk raised by the design review → two code reviewers in turn, and a split verdict failing the attempt with the `DO_NOT_SHIP` findings passed on;
   - two failed attempts → diagnose;
   - `D` → one more attempt, then `attempts_exhausted`;
   - `F` → tie-break, reaching `ready`;

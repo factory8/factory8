@@ -3,6 +3,7 @@
 import { execFileSync } from 'node:child_process';
 import { randomInt } from 'node:crypto';
 import { Client, Connection, type WorkflowHandle, WorkflowExecutionAlreadyStartedError, WorkflowFailedError } from '@temporalio/client';
+import type { RunState } from '../../worker/src/ship.ts';
 import { parseArgs, repoUrl } from './run.ts';
 
 const args = parseArgs(process.argv.slice(2));
@@ -14,9 +15,8 @@ if (!args) {
 const connection = await Connection.connect({ address: process.env.TEMPORAL_ADDRESS ?? 'localhost:7233' });
 const client = new Client({ connection });
 
-// What the ship run's `state` query answers; undefined while the run hasn't registered it or doesn't exist.
-type ShipState = { stage: string; question?: string; steps: { stage: string }[] };
-const stateOf = (id: string) => client.workflow.getHandle(id).query<ShipState>('state').catch(() => undefined);
+// The ship run's `state` query; undefined while the run hasn't registered it or doesn't exist.
+const stateOf = (id: string) => client.workflow.getHandle(id).query<RunState>('state').catch(() => undefined);
 
 if (args.cmd === 'answer') {
   const s = await stateOf(args.run);
@@ -54,7 +54,9 @@ async function watch() {
   const seen = new Set<string>();
   let asked: string | undefined;
   for (;;) {
-    const r = await Promise.race([done, new Promise<undefined>(res => setTimeout(res, 10_000))]);
+    let timer: NodeJS.Timeout | undefined;
+    const r = await Promise.race([done, new Promise<undefined>(res => { timer = setTimeout(() => res(undefined), 10_000); })]);
+    clearTimeout(timer); // or the CLI waits out the 10 s after the run ends
     const s = await stateOf(handle.workflowId);
     for (const stage of [...(s?.steps.map(x => x.stage) ?? []), s?.stage]) if (stage && !seen.has(stage)) { seen.add(stage); console.error(`stage ${stage}`); }
     if (s?.question !== asked && (asked = s?.question)) console.error(`question: ${asked}\nanswer with: f8 answer ${handle.workflowId} "<text>"`);

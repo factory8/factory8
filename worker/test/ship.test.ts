@@ -42,15 +42,15 @@ async function start(script: Record<string, unknown> = {}, cfg: object | null = 
     createSandbox: async (...a: unknown[]) => { calls.push(['create', a[1]]); return '10.0.0.7'; },
     startStep: async (_ip: unknown, r: StepRequest) => { calls.push(['start', r.stepId.split('.')[1], r]); },
     answerStep: async (_ip: unknown, id: string, a: string) => { calls.push(['answer', id.split('.')[1], a]); },
-    pollStep: async (_ip: unknown, stepId: string) => {
+    pollStep: async (_ip: unknown, stepId: string, after = 0) => {
       const stage = stepId.split('.')[1];
-      calls.push(['poll', stage]);
+      calls.push(['poll', stage, after]);
       if (gate?.stage === stage) await gate.until;
       const k = polls[stage] = (polls[stage] ?? 0) + 1;
       const v = script[`${stage}#${k}`] ?? script[stage] ?? say(stage);
       const exit = typeof v === 'object' && v && 'status' in v ? v
         : { status: 'done', summary: typeof v === 'string' ? v : `Notes.\n${J(v)}` };
-      return { seq: 3, at: '', stepId, type: 'exit', ...exit };
+      return { seq: k, at: '', stepId, type: 'exit', ...exit }; // the k-th exit in the step's log
     },
     deleteSandbox: async (...a: unknown[]) => { calls.push(['delete', a[1]]); },
   };
@@ -182,9 +182,11 @@ test('two failed attempts run diagnose with the history; D allows one more attem
   assert.match(prompt(calls, 'implement-2'), /\{"findings":\[\{"severity":"blocker","message":"x"\}\]\}$/);
 });
 
-test('a risk raised by the design review sends each attempt to two reviewers, and a split verdict fails it', async () => {
+test('a risk raised by the design review sends each attempt to two reviewers in turn, and a split verdict fails it', async () => {
   const { calls } = await ship({ 'design-review-1': { ...SHIP, risk: 'high' }, 'code-review-1b': NO(finding('blocker', 'from b')) });
   assert.ok(starts(calls).includes('code-review-1a') && starts(calls).includes('code-review-1b'));
+  const order = calls.map(c => `${c[0]} ${c[1]}`);
+  assert.ok(order.indexOf('delete code-review-1a') < order.indexOf('create code-review-1b'), 'b starts after a is done');
   assert.match(prompt(calls, 'implement-2'), /"from b"/);
   assert.ok(starts(calls).includes('code-review-2a') && starts(calls).includes('code-review-2b'));
   assert.equal(prompt(calls, 'code-review-1b').split('\n')[0], '/factory8:review 12 run=k3x9qa mode=code pr=18 sha=i1 slot=2');
@@ -237,6 +239,7 @@ test('a question deletes the pod and shows in state; the answer recreates the sa
   const i = calls.findIndex(c => c[0] === 'answer');
   assert.deepEqual(calls[i], ['answer', 'implement-1', 'Postgres']);
   assert.deepEqual(calls.slice(i - 1, i + 2).map(c => `${c[0]} ${c[1]}`), ['create implement-1', 'answer implement-1', 'poll implement-1']);
+  assert.deepEqual(calls[i + 1], ['poll', 'implement-1', 1], 'the poll after the answer starts past the question\'s exit');
   assert.equal(calls.filter(c => c[0] === 'create' && c[1] === 'implement-1').length, 2);
 });
 

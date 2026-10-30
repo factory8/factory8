@@ -27,7 +27,7 @@ M6 runs next to M5's `sdlcWorkflow`, which stays. It comes after M5 and before M
   4. **tests review:** a reviewer grades the tests. Up to two rounds.
   5. **implement:** works test-first and never edits the acceptance tests. Each attempt runs on the next model in a ladder. The step may stop with a cause: A, the tests can't pass for a correct implementation; B, the design's premise is false; C, the issue is too big.
   6. **code review:**
-     - one reviewer, or two in parallel when the risk is `high`;
+     - one reviewer, or two in turn when the risk is `high`;
      - the reviewer runs the repo's checks first and quotes their output (TST-2);
      - it checks that the acceptance tests are unchanged;
      - findings are ranked, and only `blocker` and `critical` findings block.
