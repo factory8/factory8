@@ -16,7 +16,7 @@ const CONTRACT_MAX = 2, REWORK_MAX = 2, DETERMINATE_EXTRA = 1, BOUNCES_MAX = 2;
 const answer = defineSignal<[string]>('answer');
 const state = defineQuery<RunState>('state');
 
-interface RunState { stage: string; risk: 'low' | 'high'; pr?: number; question?: string; steps: StepRecord[] }
+export interface RunState { stage: string; risk: 'low' | 'high'; pr?: number; question?: string; steps: StepRecord[] }
 type Outcome = 'ready' | 'escalated' | 'too_big' | 'parked';
 class Ended {
   outcome: Outcome; cause: string; note: string;
@@ -54,10 +54,11 @@ export async function shipWorkflow({ runId, repo, issue }: RunInput) {
     st.stage = stage;
     const stepId = `${runId}.${stage}.1`;
     try {
-      let ip = await createSandbox(runId, stage, repo);
+      let ip = await createSandbox(runId, stage, repo), seen = 0;
       await startStep(ip, { stepId, runId, prompt, repo: { url: repo, branch }, plugin: { url: plugin, at }, profile });
       for (;;) {
-        const exit = await pollStep(ip, stepId);
+        const exit = await pollStep(ip, stepId, seen);
+        seen = exit.seq; // the step's log keeps this exit, so the poll after an answer starts past it
         if (exit.status === 'done') {
           let result: Results[K];
           try { result = parseResult(kind, exit.summary); } catch (e) { throw new Ended('parked', 'H', `${stage}: ${(e as Error).message}`); }
@@ -113,14 +114,16 @@ export async function shipWorkflow({ runId, repo, issue }: RunInput) {
     }
   }
 
-  // One reviewer, or two in parallel when the risk is high (D8).
+  // One reviewer, or two in turn when the risk is high (D8): in turn, so only one question waits at a time.
   async function codeReviews(sha: string, tests: Tests) {
     const n = count('code-review'), slots = st.risk === 'high' ? ['a', 'b'] : [''];
-    const rs = await Promise.allSettled(slots.map((s, i) => step('review', `code-review-${n}${s}`,
-      cmd('review', { mode: 'code', pr: st.pr, sha, slot: i + 1 }, { tests_sha: tests.sha, tests: tests.files }), bands.review)));
-    const bad = rs.find(r => r.status === 'rejected');
-    if (bad) throw (bad as PromiseRejectedResult).reason;
-    return rs.map((r, i) => ({ stage: `code-review-${n}${slots[i]}`, review: (r as PromiseFulfilledResult<Review>).value }));
+    const out: { stage: string; review: Review }[] = [];
+    for (const [i, s] of slots.entries()) {
+      const stage = `code-review-${n}${s}`;
+      out.push({ stage, review: await step('review', stage,
+        cmd('review', { mode: 'code', pr: st.pr, sha, slot: i + 1 }, { tests_sha: tests.sha, tests: tests.files }), bands.review) });
+    }
+    return out;
   }
 
   // Graded attempts up the ladder; 'ready', or the route out of the loop (D7).

@@ -32,6 +32,7 @@ export const sandboxPod = (runId: string, stage: string, image: string): k8s.V1P
 });
 
 // Creates the step's PVC and pod, and returns the pod's IP once it's Ready.
+// A pod deleted for a question may still be terminating when the answer comes (M6 D10): wait until it's gone, then create it.
 export async function createSandbox(runId: string, stage: string, repo: string): Promise<string> {
   const image = JSON.parse(process.env.F8_IMAGES ?? '{}')[repo];
   if (!image) throw ApplicationFailure.nonRetryable(`no image for ${repo}`);
@@ -40,10 +41,10 @@ export async function createSandbox(runId: string, stage: string, repo: string):
     metadata: { name, labels: labels(runId, stage) },
     spec: { storageClassName: 'nfs-client', accessModes: ['ReadWriteOnce'], resources: { requests: { storage: '10Gi' } } },
   } }).catch(ignore(409));
-  await core.createNamespacedPod({ namespace: NS, body: sandboxPod(runId, stage, image) }).catch(ignore(409));
   for (;;) {
-    const pod = await core.readNamespacedPod({ name, namespace: NS });
-    if (pod.status?.conditions?.some(c => c.type === 'Ready' && c.status === 'True')) return pod.status.podIP!;
+    const pod = await core.readNamespacedPod({ name, namespace: NS }).catch(ignore(404));
+    if (!pod) await core.createNamespacedPod({ namespace: NS, body: sandboxPod(runId, stage, image) }).catch(ignore(409));
+    else if (!pod.metadata?.deletionTimestamp && pod.status?.conditions?.some(c => c.type === 'Ready' && c.status === 'True')) return pod.status.podIP!;
     await Context.current().sleep(1000);
   }
 }
@@ -82,10 +83,10 @@ export async function shipConfig(): Promise<{ bands: Bands; plugin: string }> {
   return { bands: b, plugin: process.env.F8_PLUGIN };
 }
 
-// Long-polls the step's events until its exit event.
-export async function pollStep(ip: string, stepId: string): Promise<Exit> {
+// Long-polls the step's events after `after` until an exit event. A resumed step's log still holds its earlier exits.
+export async function pollStep(ip: string, stepId: string, after = 0): Promise<Exit> {
   const { cancellationSignal } = Context.current();
-  for (let after = 0; ;) {
+  for (;;) {
     const res = await fetch(`http://${ip}:${PORT}/steps/${stepId}/events?after=${after}`, { signal: cancellationSignal });
     if (!res.ok) throw new Error(`adapter answered ${res.status}: ${await res.text()}`);
     const { events } = await res.json() as { events: StepEvent[] };

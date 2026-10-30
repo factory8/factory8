@@ -172,7 +172,8 @@ route back to design/acceptance ≤ BOUNCES_MAX, then escalated(bounces_exhauste
 
 **Proposed:**
 - The risk comes from the design result. A design review that returns `risk: high` raises it, and nothing lowers it.
-- When the risk is `high`, each code review runs two `step()`s in parallel, `code-review-<n>a` and `code-review-<n>b`, both on the review profile.
+- When the risk is `high`, each code review runs two `step()`s in turn, `code-review-<n>a` then `code-review-<n>b`, both on the review profile.
+- **Why in turn (the user, 2026-10-30, after the PR #10 review):** only one question can wait at a time, so two reviewers can't get each other's answers. The cost: a high-risk review takes twice as long, and `b` can read `a`'s findings on the PR before it grades. Both are accepted.
 - The tie-break, `tiebreak-<n>`, also uses the review profile.
 - Contract reviews always use one reviewer, as in dark-factory.
 - **Why the same model for both reviewers:** independence comes from fresh context and separate sandboxes, as with dark-factory's two graders. A second reviewer model would need a fourth LiteLLM model.
@@ -210,8 +211,8 @@ route back to design/acceptance ≤ BOUNCES_MAX, then escalated(bounces_exhauste
   1. `deleteSandbox` deletes the pod and keeps the PVC;
   2. `state.question` is set;
   3. the workflow runs `await condition(() => answer !== undefined)`;
-  4. `createSandbox` runs again with the same name, so the same PVC;
-  5. `answerStep`, then `pollStep`;
+  4. `createSandbox` runs again with the same name, so the same PVC, once the old pod has finished terminating;
+  5. `answerStep`, then `pollStep` after the question's exit event, which the step's log on the PVC still holds;
   6. the whole sequence repeats if the agent asks again.
 - **On diagnosis `E`:** the diagnoser has already posted the question. The workflow waits the same way, with no sandbox, then routes to design with the answer.
 - **Visibility:** the agent posts its question on the PR (the forge is the agent's work, M1 D1). `f8 run` prints it from the `state` query, and `f8 answer` sends the signal.

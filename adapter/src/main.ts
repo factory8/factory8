@@ -52,7 +52,8 @@ async function checkout(r: StepRequest) {
     appendFileSync(`${WORK}/.git/info/exclude`, '/CLAUDE.md\n');
   }
   if (r.plugin) {
-    // On the PVC, so a resumed step reuses it. Pinned by time: every step of a run sees the same commit.
+    // On the PVC, so a resumed step reuses it. Pinned by time, so the steps of a run share a commit.
+    // shortcut: a commit dated before the run's start but pushed after it reaches only later steps; pin a SHA when it bites.
     if (!existsSync(`${PLUGIN}/.git`)) await clone(r.plugin.url, PLUGIN);
     const p = (...args: string[]) => exec('git', ['-C', PLUGIN, ...args]);
     await p('fetch', 'origin');
