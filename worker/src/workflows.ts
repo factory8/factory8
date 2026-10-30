@@ -42,3 +42,5 @@ export async function sdlcWorkflow({ runId, repo, issue }: RunInput) {
     await step(repo, runId, `fix-${n}`, fix(runId, issue), 'author');
   }
 }
+
+export { shipWorkflow } from './ship.ts';

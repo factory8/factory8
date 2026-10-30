@@ -23,8 +23,9 @@ Factory8 is a self-hosted AI-native software factory. Temporal workflows, writte
 - `docs/`: the PRD, the POC plan, briefs, and `site/` (HTML summaries and D2 diagrams).
 - `openspec/`: specs and changes (see "Read first").
 - `adapter/`: `f8-adapter`, the daemon inside each sandbox that runs the agent CLI (`agent-adapter` spec), and `f8-ask`.
-- `worker/`: the Temporal worker and its one-step workflow (`run-workflow` spec); it manages sandboxes and talks to the adapter, nothing else.
-- `cli/`: `f8`, the engineer's terminal (`f8-cli` spec). `f8 run <issue>` in a clone starts a run and prints the agent's summary. It reaches Temporal at `TEMPORAL_ADDRESS`: through Tailscale, `temporal-frontend.factory8.svc.cluster.local:7233`; otherwise the default `localhost:7233` and `kubectl -n factory8 port-forward svc/temporal-frontend 7233`. From any clone: `nix run <this repo>#f8 -- run 12`.
+- `worker/`: the Temporal worker and its workflows: the M1/M5 SDLC run (`run-workflow` spec) and the M6 ship run (`ship-workflow` spec); it manages sandboxes and talks to the adapter, nothing else.
+- `plugin/`: the `factory8` Claude Code plugin, one skill per ship stage (`factory8-plugin` spec). Stage prompts change here, not in worker code; a commit changes the next run's prompts with no deploy. Try one locally with `claude --plugin-dir plugin`.
+- `cli/`: `f8`, the engineer's terminal (`f8-cli` spec). `f8 run <issue>` in a clone starts a run and prints the agent's summary; `f8 run --flow ship <issue>` starts a ship run and prints its stages, and `f8 answer <run> "<text>"` answers its question. It reaches Temporal at `TEMPORAL_ADDRESS`: through Tailscale, `temporal-frontend.factory8.svc.cluster.local:7233`; otherwise the default `localhost:7233` and `kubectl -n factory8 port-forward svc/temporal-frontend 7233`. From any clone: `nix run <this repo>#f8 -- run 12`.
 
 ## When the PRD changes
 
