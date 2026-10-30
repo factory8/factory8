@@ -47,12 +47,14 @@ spec:
       serviceAccountName: f8-worker
       containers:
         - name: worker
-          image: factory8-worker:q453np63kr8a7ap04rf23pkw4rinkzzl
+          image: factory8-worker:clap1y9c41vs46wjwnblcw5p5i5rl5sx
           imagePullPolicy: Never
           env:
             - name: TEMPORAL_ADDRESS
               value: temporal-frontend:7233
             - name: F8_MODEL
               value: glm-5.3
+            - name: F8_REVIEW_MODEL
+              value: glm-5.3-flash
             - name: F8_IMAGES
               value: '{"https://github.com/factory8/factory8": "factory8-sandbox:zqwxsvfk7bhzz2nl6w85nkqfi8ipzk9f"}'

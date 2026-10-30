@@ -1,9 +1,9 @@
-# POC plan (Phase 0, M1–M4)
+# POC plan (Phase 0, M1–M5)
 
 **Status:** agreed 2026-10-22 · from PRD v0.6 §8 · tasks tracked in OpenSpec since 2026-10-23
 
 **The POC is done when** Phase 0's exit criterion holds, minus the deferred hardening:
-- On factory8/factory8 and `librepod/marketplace`, an issue becomes a sandboxed Claude Code run through LiteLLM, which produces a draft PR.
+- On factory8/factory8 and `librepod/marketplace`, an issue becomes a sandboxed Claude Code run through LiteLLM, which produces a PR, reviewed in a separate sandbox and ready for a human.
 - The run shows live progress and keeps its session logs.
 - A mid-step question suspends the sandbox and resumes it after the answer.
 - The run survives a stall and a sandbox death.
@@ -22,9 +22,10 @@
 | Milestone | Change | After |
 |---|---|---|
 | M1: issue → sandboxed agent → draft PR (by hand) | `m1-issue-to-draft-pr` | |
-| M2: live progress and session logs | `m2-progress-and-logs` | 1.8 |
-| M3: questions with suspend/resume | `m3-questions-suspend-resume` | 1.8; its spike 3.1 only needs 1.4, so run it early |
-| M4: recovery | `m4-recovery` | 1.8, 2.2; its cleanup task 4.4 also needs 3.2 |
+| M5: the SDLC run (plan, build, review/fix, ready PR) | `m5-sdlc-workflow` | 1.8 |
+| M2: live progress and session logs | `m2-progress-and-logs` | M5 |
+| M3: questions with suspend/resume | `m3-questions-suspend-resume` | M5; its spike 3.1 only needs 1.4, so run it early |
+| M4: recovery | `m4-recovery` | M5, 2.2; its cleanup task 4.4 also needs 3.2 |
 
 ## Not in the POC
 
