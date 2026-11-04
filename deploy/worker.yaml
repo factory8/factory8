@@ -58,3 +58,5 @@ spec:
               value: glm-5.3-flash
             - name: FACTORY8_IMAGES
               value: '{"https://github.com/factory8/factory8": "factory8-sandbox:zqwxsvfk7bhzz2nl6w85nkqfi8ipzk9f"}'
+            - name: FACTORY8_PLUGIN
+              value: https://github.com/factory8/factory8
