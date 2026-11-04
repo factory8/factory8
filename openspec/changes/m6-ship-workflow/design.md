@@ -195,14 +195,14 @@ route back to design/acceptance ≤ BOUNCES_MAX, then escalated(bounces_exhauste
 - **Read once per run:** `shipConfig` runs first, and its result sits in the workflow's history. A changed setting affects only later runs, and a replay sees the same value.
 - **Validated in `shipConfig`:**
   - every key is present and `implement` isn't empty;
-  - the review and diagnose models aren't any design, acceptance or implement model (DEP-11, M5's rule carried over).
+  - ~~the review and diagnose models aren't any design, acceptance or implement model~~: dropped (relaxed 2026-11-04: isolation, not a different model, keeps a review independent; DEP-11). Any stage may use any model.
 
   A failure ends the run as `bad_bands` before any sandbox starts. Finish may use any model, since it only posts what it's given.
 - **Why an env var:** `FACTORY8_IMAGES` set the precedent, and a change is a `deploy/worker.yaml` edit plus an apply.
 - **Rejected:**
   - a ConfigMap file: another object and another mount for one value;
   - models chosen per run by `f8`: the laptop can't see the installation's models (M5 D7).
-- **On the pilot cluster:** a model ladder with a reviewer outside it needs a third LiteLLM model (*user*). Until then the ladder can climb effort only, and only if LiteLLM passes `--effort` through (Risks).
+- **On the pilot cluster (2026-11-04):** every stage on `glm-5.3`, finish on `glm-5.3-flash`, and implement climbs effort only (medium → high; the last profile repeats), which works only if LiteLLM passes `--effort` through (Risks).
 
 ### D10. Human waits (M3's core)
 

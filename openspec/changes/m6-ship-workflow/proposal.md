@@ -42,7 +42,7 @@ M6 runs next to M5's `sdlcWorkflow`, which stays. It comes after M5 and before M
   - A diagnosis that needs a human decision waits the same way.
   - `f8 answer <run> "<text>"` sends the signal.
 - **Run state is the workflow's:** a `state` query returns the stage, the attempt, the risk, the PR, the open question and every step's result. `f8 run --flow ship` prints stage changes and questions from it.
-- **Models per stage and per attempt:** a worker setting, `FACTORY8_BANDS`, which the run reads once at its start (ORC-2, AGT-3). Review and diagnose models must not be any author stage's model (DEP-11).
+- **Models per stage and per attempt:** a worker setting, `FACTORY8_BANDS`, which the run reads once at its start (ORC-2, AGT-3). Any stage may use any model: each step's own sandbox keeps a review independent (DEP-11, relaxed 2026-11-04).
 - **The adapter, changed once:**
   - the protocol preamble moves to the system prompt, so a prompt can start with a slash command;
   - a step can load the `factory8` plugin as it was at the run's start time.

@@ -21,7 +21,7 @@ classes: {
 
 cli: "f8 run --flow ship 12 (engineer's laptop)\nstarts shipWorkflow {runId, repo, issue}; every 10 s it reads the state query\n(stage, attempt, risk, PR, open question, each step's model and result)\nand prints new stages, and questions with the f8 answer line" {class: human}
 config: "shipConfig (activity, no sandbox)\nreads FACTORY8_BANDS and FACTORY8_PLUGIN once per run;\nevery step loads the plugin as of the run's start time" {class: wf}
-bad_bands: "bad_bands: a key is missing, or review / diagnose\nuses an author's model (DEP-11); fails before any sandbox" {class: fail}
+bad_bands: "bad_bands: a key is missing\nor implement is empty; fails before any sandbox" {class: fail}
 
 cli -> config
 config -> bad_bands {style.stroke: "#e53935"}

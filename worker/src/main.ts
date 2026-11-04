@@ -2,9 +2,8 @@
 import { NativeConnection, Worker } from '@temporalio/worker';
 import * as activities from './activities.ts';
 
-// DEP-11: a review never runs on the author's model, so no silent fallback (M5 D7).
-if (!process.env.FACTORY8_REVIEW_MODEL || process.env.FACTORY8_REVIEW_MODEL === process.env.FACTORY8_MODEL)
-  throw new Error('FACTORY8_REVIEW_MODEL must be set and differ from FACTORY8_MODEL');
+// No silent fallback: the reviewer's model is chosen, even when it's the author's (M5 D7, DEP-11).
+if (!process.env.FACTORY8_REVIEW_MODEL) throw new Error('FACTORY8_REVIEW_MODEL must be set');
 
 const connection = await NativeConnection.connect({ address: process.env.TEMPORAL_ADDRESS });
 const worker = await Worker.create({
