@@ -58,7 +58,7 @@ test('ready on the first review: plan, build, review-1, each in its own sandbox'
   ]);
   assert.deepEqual(calls.filter(c => c[0] === 'create').map(c => c[3]), Array(3).fill('https://github.com/o/r'));
   assert.deepEqual(calls.filter(c => c[0] === 'start').map(c => (c[1] as StepRequest).repo.branch),
-    Array(3).fill('f8/k3x9qa'));
+    Array(3).fill('factory8/k3x9qa'));
 });
 
 test('one fix round: review-1 asks for changes, fix-1 runs, review-2 is ready', async () => {

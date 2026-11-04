@@ -10,7 +10,7 @@ const { shipConfig, createSandbox, startStep, answerStep, deleteSandbox } = prox
 });
 const { pollStep } = proxyActivities<typeof activities>({ startToCloseTimeout: '2h', retry: { maximumAttempts: 1 } });
 
-// No speculative config (M5 D4): these become F8_BANDS keys when someone needs to change one.
+// No speculative config (M5 D4): these become FACTORY8_BANDS keys when someone needs to change one.
 const CONTRACT_MAX = 2, REWORK_MAX = 2, DETERMINATE_EXTRA = 1, BOUNCES_MAX = 2;
 
 const answer = defineSignal<[string]>('answer');
@@ -35,7 +35,7 @@ export async function shipWorkflow({ runId, repo, issue }: RunInput) {
   setHandler(answer, a => { answers.push(a); });
   const { bands, plugin } = await shipConfig(); // before any sandbox, so bad settings fail the run at once
   const at = workflowInfo().startTime.toISOString();
-  const branch = `f8/${runId}`;
+  const branch = `factory8/${runId}`;
 
   const count = (kind: string) => counts[kind] = (counts[kind] ?? 0) + 1;
   const cmd = (skill: Skill, args: Record<string, string | number | undefined>, ctx?: unknown) =>

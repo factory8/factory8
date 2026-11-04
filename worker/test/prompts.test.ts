@@ -14,7 +14,7 @@ test('every prompt forbids merging and default-branch pushes, and treats the iss
 
 test('the plan prompt names plan.md, its four sections, the draft PR and the PR body', () => {
   for (const s of ['gh issue view 12', '.factory8/runs/k3x9qa/plan.md', 'Files that change', 'Order of work',
-    'Risks', 'Proof', 'Change no other file', 'gh pr create --draft', 'f8/k3x9qa', 'Run: k3x9qa', 'Fixes #12'])
+    'Risks', 'Proof', 'Change no other file', 'gh pr create --draft', 'factory8/k3x9qa', 'Run: k3x9qa', 'Fixes #12'])
     assert.ok(prompts.plan.includes(s), s);
 });
 

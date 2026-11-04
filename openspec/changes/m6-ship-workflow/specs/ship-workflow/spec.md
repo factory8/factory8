@@ -23,11 +23,11 @@ Between them it runs rework, diagnosis and routing. It ends with the PR ready fo
 - **THEN** the steps `design-1`, `design-review-1`, `acceptance-1`, `tests-review-1`, `implement-1`, `code-review-1` and `finish` run in that order, and the run succeeds with the PR's URL
 
 ### Requirement: A sandbox per step
-Every step of a ship run SHALL run in its own sandbox: a pod and a PVC named `f8-<runId>-<stage>-<n>`, where `<n>` counts that stage's steps in the run. This includes each attempt and each reviewer. The pod SHALL be deleted when the step ends. A step SHALL see earlier steps' work only on the run branch `f8/<runId>` and on the PR, never through their sessions or files.
+Every step of a ship run SHALL run in its own sandbox: a pod and a PVC named `factory8-<runId>-<stage>`, where `<stage>` ends with a count of that stage's steps in the run (`implement-2`, `code-review-1a`). This includes each attempt and each reviewer. The pod SHALL be deleted when the step ends. A step SHALL see earlier steps' work only on the run branch `factory8/<runId>` and on the PR, never through their sessions or files.
 
 #### Scenario: Attempts don't share a sandbox
 - **WHEN** a second implement attempt starts
-- **THEN** it runs in `f8-<runId>-implement-2` on a new PVC, with no session from `implement-1`
+- **THEN** it runs in `factory8-<runId>-implement-2` on a new PVC, with no session from `implement-1`
 
 ### Requirement: Stage commands from the factory8 plugin
 Each step's prompt SHALL be a `factory8` plugin command:
@@ -198,7 +198,7 @@ A diagnosis `E` SHALL wait for the same signal.
 
 #### Scenario: Answer resumes the step
 - **WHEN** `implement-1` asks a question and the user answers it
-- **THEN** a new pod `f8-<runId>-implement-1` starts on the same PVC, and the step continues its session with the answer
+- **THEN** a new pod `factory8-<runId>-implement-1` starts on the same PVC, and the step continues its session with the answer
 
 #### Scenario: Waiting
 - **WHEN** the run is waiting for an answer
@@ -237,15 +237,19 @@ The run SHALL answer a `state` query with:
 - **THEN** it returns the stage `implement-2`, the PR, the risk, and the results of every earlier step
 
 ### Requirement: Models per stage
-A run SHALL read the installation's `F8_BANDS` setting once, when it starts:
+A run SHALL read the installation's `FACTORY8_BANDS` setting once, when it starts:
 - one profile (model, optional effort) each for design, acceptance, review, diagnose and finish;
 - a list of profiles for implement.
 
-The run SHALL fail at its start when any of them is missing, or when the review or diagnose model is a design, acceptance or implement model (DEP-11).
+The run SHALL fail at its start when any of them is missing. Any stage MAY use any model, the authors' included: each step's own sandbox and empty session keep a review independent (DEP-11).
 
-#### Scenario: Reviewer on an author's model
-- **WHEN** `F8_BANDS` gives review the same model as one implement profile
-- **THEN** the run fails before any sandbox starts, naming that model
+#### Scenario: A missing band
+- **WHEN** `FACTORY8_BANDS` has no `finish` profile
+- **THEN** the run fails with `bad_bands` before any sandbox starts
+
+#### Scenario: One model for every stage
+- **WHEN** `FACTORY8_BANDS` gives review and diagnose the same model as implement
+- **THEN** the run starts, and each review runs in its own sandbox with an empty session
 
 ### Requirement: Agents never merge
 No step SHALL merge the PR or push to the default branch. The human merges or not in GitHub, and nothing in the run waits on that decision (G4, DEP-2).

@@ -11,7 +11,7 @@ You did not write this. What the author and the PR say are claims to verify, not
 
 ## Input
 
-The first line is `<issue> run=<runId> mode=<mode> pr=<n> sha=<commit>`, where `sha` is the commit you grade (`code` mode adds `slot=<n>`). In `code` mode the JSON object on the next line holds `tests_sha` (the acceptance commit) and `tests` (the test files). The run branch is `f8/<runId>`.
+The first line is `<issue> run=<runId> mode=<mode> pr=<n> sha=<commit>`, where `sha` is the commit you grade (`code` mode adds `slot=<n>`). In `code` mode the JSON object on the next line holds `tests_sha` (the acceptance commit) and `tests` (the test files). The run branch is `factory8/<runId>`.
 
 ## Read
 

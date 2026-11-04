@@ -11,7 +11,7 @@ You are the designer of a ship run. You turn one issue into a reviewable design.
 
 ## Input
 
-The first line is `<issue> run=<runId>`. A JSON object on the next line, if present, holds `findings` (blocking findings of the design review to fix), `note` (why an earlier stage sent the work back) or `answer` (a human's answer to a question). The run branch is `f8/<runId>`.
+The first line is `<issue> run=<runId>`. A JSON object on the next line, if present, holds `findings` (blocking findings of the design review to fix), `note` (why an earlier stage sent the work back) or `answer` (a human's answer to a question). The run branch is `factory8/<runId>`.
 
 ## Read
 
@@ -30,7 +30,7 @@ Write `.factory8/runs/<runId>/design.md` with these sections:
 5. **Decisions and assumptions:** each reversible choice you made, with the reason.
 6. **Steps:** numbered, test-first.
 
-Commit and push to `f8/<runId>`. On the first design, open a draft PR with `gh pr create --draft`: its title is the issue's title, its body a summary, `Run: <runId>` and `Fixes #<issue>`. On rework, push to the same PR.
+Commit and push to `factory8/<runId>`. On the first design, open a draft PR with `gh pr create --draft`: its title is the issue's title, its body a summary, `Run: <runId>` and `Fixes #<issue>`. On rework, push to the same PR.
 
 If the issue is more than one reviewable change, stop with cause `C` instead.
 

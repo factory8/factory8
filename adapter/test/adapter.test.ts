@@ -13,11 +13,11 @@ sh('git init -q -b master seed && git -C seed -c user.name=t -c user.email=t@t c
 mkdirSync(`${tmp}/bin`);
 writeFileSync(`${tmp}/bin/claude`, `#!/bin/sh
 prompt=$(cat)
-printf '%s' "$*" > "$F8_ROOT/args"; printf '%s' "$prompt" > "$F8_ROOT/prompt"
+printf '%s' "$*" > "$FACTORY8_ROOT/args"; printf '%s' "$prompt" > "$FACTORY8_ROOT/prompt"
 echo '{"type":"system","subtype":"init","session_id":"s1"}'
 case "$*" in *--resume*) printf '{"type":"result","result":"resumed with %s"}\\n' "$prompt"; exit 0;; esac
 case "$prompt" in *ASK*) f8-ask "Which DB?" >/dev/null; exit 0;; esac
-case "$prompt" in *SLOW*) sleep 300 >/dev/null 2>&1 & echo $! > "$F8_ROOT/sleep.pid"; wait; exit 0;; esac
+case "$prompt" in *SLOW*) sleep 300 >/dev/null 2>&1 & echo $! > "$FACTORY8_ROOT/sleep.pid"; wait; exit 0;; esac
 echo '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"git commit -m work"}}]}}'
 echo x > f && git add f && git commit -qm work && git push -q origin HEAD
 echo '{"type":"result","result":"did it"}'
@@ -34,7 +34,7 @@ after(() => { adapters.forEach(a => a.kill()); });
 async function adapter(port: number) {
   const root = mkdtempSync(join(tmp, 'f8-'));
   adapters.push(spawn(process.execPath, [join(import.meta.dirname, '../src/main.ts'), 'serve'], {
-    env: { ...process.env, F8_ROOT: root, PORT: String(port), PATH: `${tmp}/bin:${join(import.meta.dirname, '../bin')}:${process.env.PATH}` },
+    env: { ...process.env, FACTORY8_ROOT: root, PORT: String(port), PATH: `${tmp}/bin:${join(import.meta.dirname, '../bin')}:${process.env.PATH}` },
     stdio: 'inherit',
   }));
   const base = `http://localhost:${port}`;
@@ -58,7 +58,7 @@ async function adapter(port: number) {
 const step = (runId: string, prompt: string) => ({
   stepId: `${runId}.build.1`, runId, prompt,
   profile: { vendor: 'claude-code', model: 'haiku' },
-  repo: { url: `${tmp}/origin.git`, branch: `f8/${runId}` },
+  repo: { url: `${tmp}/origin.git`, branch: `factory8/${runId}` },
 });
 
 test('a step runs and pushes with the run trailer', async () => {
@@ -67,7 +67,7 @@ test('a step runs and pushes with the run trailer', async () => {
   const events = await a.untilExit('run1.build.1');
   assert.deepEqual(events.map(e => [e.type, e.text ?? e.status]), [['progress', 'Bash: git commit -m work'], ['exit', 'done']]);
   assert.equal(events[1].summary, 'did it');
-  assert.match(sh('git --git-dir origin.git log -1 --format=%B f8/run1'), /^Factory8-Run: run1$/m);
+  assert.match(sh('git --git-dir origin.git log -1 --format=%B factory8/run1'), /^Factory8-Run: run1$/m);
   assert.equal(await a.post('/steps', step('run1', 'do the work')), 202, 'repeated start is a no-op');
 });
 
@@ -99,7 +99,7 @@ test('the preamble rides the system prompt, and stdin holds the task prompt alon
   await a.post('/steps', step('run4', 'ASK first'));
   const [asked] = await a.untilExit('run4.build.1');
   const args = () => readFileSync(`${a.root}/args`, 'utf8');
-  assert.match(args(), /--append-system-prompt You are working in .*\/work. on branch .f8\/run4./);
+  assert.match(args(), /--append-system-prompt You are working in .*\/work. on branch .factory8\/run4./);
   assert.equal(readFileSync(`${a.root}/prompt`, 'utf8'), 'ASK first');
   assert.ok(!args().includes('--plugin-dir'));
   assert.ok(!existsSync(`${a.root}/plugin`));

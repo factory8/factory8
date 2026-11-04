@@ -93,7 +93,7 @@ test('straight through: steps in order, a sandbox each, the stage profiles, the 
   assert.ok(Math.abs(Date.now() - Date.parse([...ats][0])) < 60_000);
   assert.equal(reqs(calls)[0].plugin!.url, 'https://github.com/o/p');
   assert.equal(prompt(calls, 'code-review-1'), '/factory8:review 12 run=k3x9qa mode=code pr=18 sha=i1 slot=1\n{"tests_sha":"a1","tests":["t.test.ts"]}');
-  assert.equal(reqs(calls)[0].repo.branch, 'f8/k3x9qa');
+  assert.equal(reqs(calls)[0].repo.branch, 'factory8/k3x9qa');
 });
 
 test('a design fixed after its review runs again with the blocking findings', async () => {
