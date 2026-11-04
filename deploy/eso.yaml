@@ -2,7 +2,7 @@ apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
   name: f8-sandbox-settings
-  namespace: f8-sandboxes
+  namespace: factory8-sandboxes
 spec:
   dataFrom:
   - extract:

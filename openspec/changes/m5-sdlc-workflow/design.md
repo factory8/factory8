@@ -62,7 +62,7 @@ The proposal's "Not in M5" lists the rest.
 - `sandboxPod(runId, stage, image)`, `createSandbox(runId, stage, repo)` and `deleteSandbox(runId, stage)` name the pod and the PVC `f8-<runId>-<stage>`, at most 18 characters (`f8-k3x9qa-review-3`). The labels are `app: f8-sandbox`, `f8/run: <runId>` and `f8/step: <stage>`.
 - The worker's RBAC (create, get and delete pods; create and get PVCs) is unchanged.
 - **The adapter needs nothing:** each step's PVC starts empty, so it has no session to resume and the step starts a fresh one. A later attempt of the same step (M4) gets the same PVC back and resumes, as the `agent-adapter` spec already says.
-- **On the share,** each step leaves a directory `f8-sandboxes/f8-<runId>-<stage>` with its session logs (AGT-11).
+- **On the share,** each step leaves a directory `factory8-sandboxes/f8-<runId>-<stage>` with its session logs (AGT-11).
 - **Rejected:** a session-per-step fix in the adapter (an earlier draft of this design). Separate PVCs make it unnecessary.
 
 ### D3. The review verdict is the summary's last line

@@ -5,7 +5,7 @@ import type { StepEvent, StepRequest } from '../../adapter/src/types.ts';
 
 export type Exit = Extract<StepEvent, { type: 'exit' }>;
 
-const NS = 'f8-sandboxes', PORT = 7070;
+const NS = 'factory8-sandboxes', PORT = 7070;
 const kc = new k8s.KubeConfig();
 kc.loadFromDefault();
 const core = kc.makeApiClient(k8s.CoreV1Api);

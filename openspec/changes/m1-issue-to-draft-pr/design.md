@@ -69,7 +69,7 @@ Diagram: `docs/site/m1-run.svg` (source `m1-run.d2`).
 ### D2. Sandboxes on Kubernetes
 
 **Decided (2026-10-23): no agent-sandbox. The worker creates plain Kubernetes objects.**
-- **Per run,** in namespace `f8-sandboxes`, a PVC and a Pod, both named `f8-<runId>`:
+- **Per run,** in namespace `factory8-sandboxes`, a PVC and a Pod, both named `f8-<runId>`:
   - **The PVC:** on `nfs-client`, named explicitly because it isn't the default StorageClass; `ReadWriteOnce`, 10Gi. The worker never deletes it, because it holds the session logs (D1, AGT-11, SBX-15).
   - **The Pod:**
     - `runtimeClassName: kata`, the project image, and `f8-adapter serve` as the main process on port 7070;
@@ -83,8 +83,8 @@ Diagram: `docs/site/m1-run.svg` (source `m1-run.d2`).
 - **The "project template"** is a function in the worker, `sandboxPod(runId, image)`. It holds the admin-owned settings: runtime class, port, volume and Secret (DEP-6).
   - The image for each repo comes from a JSON env var on the worker Deployment, `F8_IMAGES` (repo URL → image).
   - SBX-17's build workflow replaces it in Phase 1.
-- **Access:** the worker uses `@kubernetes/client-node`, with a ServiceAccount and a Role in `f8-sandboxes`: create, get and delete on pods; create and get on PVCs.
-- **Namespaces:** `factory8` holds Temporal, Postgres and the worker; `f8-sandboxes` holds the sandboxes.
+- **Access:** the worker uses `@kubernetes/client-node`, with a ServiceAccount and a Role in `factory8-sandboxes`: create, get and delete on pods; create and get on PVCs.
+- **Namespaces:** `factory8` holds Temporal, Postgres and the worker; `factory8-sandboxes` holds the sandboxes.
 - **Why** (research on 2026-10-23, v1.0.8 source):
   - agent-sandbox's core is a thin wrapper over these same objects (its suspend just deletes the pod), and it saves no worker code.
   - Its template layer needs workarounds: a claim requires a warm pool, and a template adds a NetworkPolicy by default that blocks the worker and DNS.
@@ -99,7 +99,7 @@ Diagram: `docs/site/m1-run.svg` (source `m1-run.d2`).
 **Decided (2026-10-23): the address is the pod IP.**
 - The worker waits for the pod to be Ready, then talks to `http://<status.podIP>:7070`.
 - It re-reads the IP after each create.
-- **Rejected:** a shared headless Service giving `<runId>.sbx.f8-sandboxes.svc`. It adds an object and DNS caching (CoreDNS caches negative answers for about 30 s) for no gain, since the worker is the only client.
+- **Rejected:** a shared headless Service giving `<runId>.sbx.factory8-sandboxes.svc`. It adds an object and DNS caching (CoreDNS caches negative answers for about 30 s) for no gain, since the worker is the only client.
 
 ### D3. The project image (A14)
 
@@ -212,9 +212,9 @@ Diagram: `docs/site/m1-run.svg` (source `m1-run.d2`).
 - **Worker:** env vars on its Deployment: `TEMPORAL_ADDRESS` (Temporal's in-cluster address), `F8_MODEL` (the default model) and `F8_IMAGES` (D2). No config file, no `project.yaml`, and no GitHub token.
 - **The default profile:** when a run has no `profile`, `startStep` sends `{ vendor: 'claude-code', model: F8_MODEL }`. The workflow can't read env vars itself (Temporal replays it), and `f8 run` on the laptop can't see the worker's.
 - **`F8_MODEL` on the pilot cluster:** `glm-5.3`, through LiteLLM (task 1.2, 2026-10-25). Claude Code needs only `--model` for it: a step on the host with just `ANTHROPIC_BASE_URL` and `ANTHROPIC_AUTH_TOKEN` made 4 `/v1/messages` calls, all to that model, and pushed its commit in 27s.
-- **Constants, not settings:** the sandbox namespace `f8-sandboxes` (D2) and the adapter port 7070.
+- **Constants, not settings:** the sandbox namespace `factory8-sandboxes` (D2) and the adapter port 7070.
 - **Sandbox:** `GH_TOKEN` and LiteLLM's URL and key come from the Secret (`sandbox` spec).
-  - **Built (task 1.4, 2026-10-28):** the Secret `f8-sandbox` in `f8-sandboxes` is synced by an ExternalSecret (`deploy/eso.yaml`) from the cluster's OpenBao, path `apps/f8-sandbox`, through its ClusterSecretStore `openbao`. The values never touch the repo; `ANTHROPIC_BASE_URL` is `http://litellm.litellm:4000`.
+  - **Built (task 1.4, 2026-10-28):** the Secret `f8-sandbox` in `factory8-sandboxes` is synced by an ExternalSecret (`deploy/eso.yaml`) from the cluster's OpenBao, path `apps/f8-sandbox`, through its ClusterSecretStore `openbao`. The values never touch the repo; `ANTHROPIC_BASE_URL` is `http://litellm.litellm:4000`.
   - A Kata pod from D2's spec became Ready about 5 s after it was created, and a step `curl`ed from a runc pod pushed `f8/p14smk` with the `Factory8-Run` trailer in about 40 s on `glm-5.3`. The agent ran as root (`id -u` = 0) with `IS_SANDBOX=1` in the guest kernel (6.18.56), and its session file stayed on the PVC. `k3s ctr -n k8s.io images import` names the image `docker.io/library/factory8-sandbox:<hash>`, which is where kubelet looks for `factory8-sandbox:<hash>`.
 
 ## Risks / Trade-offs
