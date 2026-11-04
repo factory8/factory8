@@ -105,7 +105,7 @@ The proposal's "Not in M5" lists the rest.
 **Proposed:** a worker setting `FACTORY8_REVIEW_MODEL`, next to `FACTORY8_MODEL` (M1 D8).
 - `startStep(ip, request, role)` fills the profile: `{ vendor: 'claude-code', model }`, with `FACTORY8_REVIEW_MODEL` for `role: 'reviewer'` and `FACTORY8_MODEL` for `'author'` (plan, build, fix).
 - The worker refuses to start when `FACTORY8_REVIEW_MODEL` is missing. It may equal `FACTORY8_MODEL` (relaxed 2026-11-04: isolation, not a different model, keeps a review independent; DEP-11); an earlier draft refused that too.
-- **On the pilot cluster:** the user picks the reviewer model, and adds it to LiteLLM if it isn't `glm-5.3-flash` (today LiteLLM has only `glm-5.3` and `glm-5.3-flash`). Its name goes into `deploy/worker.yaml`.
+- **On the pilot cluster:** the reviewer uses `glm-5.3`, the author's model (DEP-11); its name goes into `deploy/worker.yaml`.
 - **Why the role is passed explicitly:** the workflow knows which step reviews, and the activity knows the settings. Passing the role keeps both facts where they are, with no stage-name parsing in the activity.
 - **Rejected:**
   - a profile chosen by `f8 run`: the laptop can't see the installation's settings, and nobody should pick models per run;
@@ -127,7 +127,7 @@ The proposal's "Not in M5" lists the rest.
 ## Risks / Trade-offs
 
 - [Nothing but the prompt stops an agent from merging: on GitHub's free plan the token can merge and push to `master` (#1, DEP-2)] → every prompt forbids it, and the user watches the first runs. It's already on "Not in the POC" under #1.
-- [The reviewer is the same CLI (Claude Code) on another model, so the vendor's habits are shared] → separate sandbox and model now; a different vendor comes with AGT-8.
+- [The reviewer is the same CLI (Claude Code) on another model, so the vendor's habits are shared] → a separate sandbox now; a different vendor comes with AGT-8.
 - [Each step pays a pod start (about 5 s) and a fresh clone] → accepted; a per-repo git mirror is SBX-18 (Phase 2).
 - [A run leaves up to 7 PVC directories on the share, and the PVs stay `Released`] → deleted by hand until ART-10, as M1's are.
 - [A run takes up to 7 steps, and `f8 run` waits through all of them silently until M2] → Ctrl-C detaches, as in M1. The Temporal web UI shows the current activity.

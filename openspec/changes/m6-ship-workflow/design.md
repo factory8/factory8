@@ -202,7 +202,7 @@ route back to design/acceptance ≤ BOUNCES_MAX, then escalated(bounces_exhauste
 - **Rejected:**
   - a ConfigMap file: another object and another mount for one value;
   - models chosen per run by `f8`: the laptop can't see the installation's models (M5 D7).
-- **On the pilot cluster (2026-11-04):** every stage on `glm-5.3`, finish on `glm-5.3-flash`, and implement climbs effort only (medium → high → high), which works only if LiteLLM passes `--effort` through (Risks).
+- **On the pilot cluster (2026-11-04):** every stage on `glm-5.3`, finish on `glm-5.3-flash`, and implement climbs effort only (medium → high; the last profile repeats), which works only if LiteLLM passes `--effort` through (Risks).
 
 ### D10. Human waits (M3's core)
 

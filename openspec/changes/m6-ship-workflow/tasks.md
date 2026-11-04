@@ -40,7 +40,7 @@
   - `command`: the first line, and the JSON context line;
   - `report`: the outcome, each step's model and result, the causes, and non-blocking findings listed as follow-ups.
 - [x] 6.5 Activities (design D1, D9, D10; after 5.2). Done when:
-  - `shipConfig` returns the bands and the plugin URL, and fails non-retryably with `bad_bands` when a key is missing, `implement` is empty, or a review or diagnose model is an author model;
+  - `shipConfig` returns the bands and the plugin URL, and fails non-retryably with `bad_bands` when a key is missing or `implement` is empty (any stage may use any model, DEP-11);
   - `answerStep` POSTs `/steps/{id}/answer`;
   - `startStep` keeps a request's `profile`.
 
@@ -78,7 +78,7 @@
 
   The CLI tests and `npm run typecheck` pass.
 - [ ] 6.10 Deploy (*user* + me; after 6.3, 6.9, 5.4; design Migration Plan). Done when:
-  - the *user* has added a third LiteLLM model, or chosen an effort-only ladder;
+  - the *user* has chosen the ladder (one model with an effort climb is enough, DEP-11);
   - whether `--effort` reaches the provider is recorded in D9;
   - both images are imported;
   - `deploy/worker.yaml` has their tags, `FACTORY8_BANDS` and `FACTORY8_PLUGIN`, and is applied with no run in flight;

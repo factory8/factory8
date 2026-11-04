@@ -4,7 +4,7 @@
 
 M1's run is one agent step: whatever the agent produces becomes a draft PR that nobody has checked, and there's no plan to check it against. M5 makes a run follow the playbook's chain: plan, build with tests, an independent review and fixes. The run ends with a PR ready for the human to merge or not, so the human's time goes to the one gate that matters (G1, G2, G6).
 
-**Each step runs in its own sandbox.** A reviewer that shares the author's session, handoff note or working tree reviews with the author's assumptions, so the review would be worth little. Isolated steps meet only through git and the PR, as PRD §7 has it ("the next stage starts fresh from git … and carries no hidden transcript state"). The reviewer also runs on a different model from the author (DEP-11).
+**Each step runs in its own sandbox.** A reviewer that shares the author's session, handoff note or working tree reviews with the author's assumptions, so the review would be worth little. Isolated steps meet only through git and the PR, as PRD §7 has it ("the next stage starts fresh from git … and carries no hidden transcript state"). The reviewer may use the author's model: isolation, not a different model, keeps the review independent (DEP-11).
 
 M5 comes right after 1.8, before M2–M4, so their heartbeats, questions and retries apply to a multi-step run from the start. It pulls the plan step (BLD-1) and the PR review step (DEP-1) from Phase 1 into Phase 0, without the human gates in between.
 

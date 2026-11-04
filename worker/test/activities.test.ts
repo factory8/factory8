@@ -35,9 +35,9 @@ test('startStep sends FACTORY8_REVIEW_MODEL for the reviewer and FACTORY8_MODEL 
 });
 
 test('the worker exits at start when FACTORY8_REVIEW_MODEL is missing', () => {
-  const env = { ...process.env };
-  delete env.FACTORY8_REVIEW_MODEL;
-  const p = spawnSync('node', [new URL('../src/main.ts', import.meta.url).pathname],{ env, encoding: 'utf8' });
+  // An unreachable Temporal and a timeout: a broken check fails here instead of reaching the dev shell's Temporal.
+  const env = { ...process.env, TEMPORAL_ADDRESS: '127.0.0.1:1', FACTORY8_REVIEW_MODEL: undefined };
+  const p = spawnSync('node', [new URL('../src/main.ts', import.meta.url).pathname], { env, encoding: 'utf8', timeout: 10_000 });
   assert.notEqual(p.status, 0);
   assert.match(p.stderr, /FACTORY8_REVIEW_MODEL/);
 });

@@ -25,7 +25,7 @@ code{background:#334155;padding:1px 6px;border-radius:4px}.cap{color:var(--mut);
 
 <h2>One step, end to end (with a mid-step question)</h2>
 <div class="fig"><img src="run.svg" alt="Step sequence"></div>
-<p class="cap">The sandbox runs only while the agent works. A question suspends it: the pod is gone, the PVC (workspace, vendor session, handoff note) is kept, and tokens are revoked, so waiting costs no compute. Stage gates delete the sandbox instead, and the next stage starts fresh from git, possibly with another vendor. In the Phase 0 SDLC run (M5) every stage gets its own sandbox — pod and PVC — and the review stage runs on a different model than the author's. The M6 ship run uses the same sandbox per step, adds a wait for a human answer that holds no pod, and takes its stage prompts from the <code>factory8</code> plugin. <a href="run.svg">full size</a> · <a href="run.d2">source</a></p>
+<p class="cap">The sandbox runs only while the agent works. A question suspends it: the pod is gone, the PVC (workspace, vendor session, handoff note) is kept, and tokens are revoked, so waiting costs no compute. Stage gates delete the sandbox instead, and the next stage starts fresh from git, possibly with another vendor. In the Phase 0 SDLC run (M5) every stage gets its own sandbox — pod and PVC —; the review stage may use the author's model, since isolation, not a different model, keeps it independent (DEP-11). The M6 ship run uses the same sandbox per step, adds a wait for a human answer that holds no pod, and takes its stage prompts from the <code>factory8</code> plugin. <a href="run.svg">full size</a> · <a href="run.d2">source</a></p>
 
 <h2>Who owns what</h2>
 <table><tr><th>Component</th><th>Owns</th><th>Never owns</th></tr>
