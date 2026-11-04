@@ -21,11 +21,11 @@ The run SHALL NOT call the forge or hold forge credentials. Reading the issue, o
 - **THEN** the draft PR was opened by the agent from the sandbox, and the worker made no GitHub call
 
 ### Requirement: Run branch
-Each run SHALL have its own branch `f8/<runId>`, which the step's preamble names and the agent pushes to.
+Each run SHALL have its own branch `factory8/<runId>`, which the step's preamble names and the agent pushes to.
 
 #### Scenario: Branch per run
 - **WHEN** two runs start on the same repo
-- **THEN** each pushes to its own `f8/<runId>` branch
+- **THEN** each pushes to its own `factory8/<runId>` branch
 
 ### Requirement: Sandbox deleted at run end
 A run SHALL delete its sandbox's pod when it ends, whatever the outcome. The run's PVC stays (`sandbox` spec, "Session logs outlive the sandbox").

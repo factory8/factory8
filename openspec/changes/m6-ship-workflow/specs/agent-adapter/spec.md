@@ -38,8 +38,8 @@ Permission checks are always skipped: the agent is root in the sandbox, which is
 Every session's system prompt, fresh or resumed, SHALL end with: "You are working in `/f8/work` on branch `<branch>`. Commit and push your work before you finish. If you need a decision only a human can make, run `f8-ask "<question>"` and stop; don't guess. Finish with a short summary of what you did."
 
 #### Scenario: Branch named
-- **WHEN** a step starts on branch `f8/abc123`
-- **THEN** the preamble names `f8/abc123` as the branch to push
+- **WHEN** a step starts on branch `factory8/abc123`
+- **THEN** the preamble names `factory8/abc123` as the branch to push
 
 ### Requirement: Filesystem layout
 The PVC SHALL be mounted at `/f8` (SBX-12):

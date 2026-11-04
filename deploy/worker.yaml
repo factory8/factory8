@@ -1,16 +1,17 @@
-# The Temporal worker (M1 design D2, D4, D8). It manages sandboxes in f8-sandboxes and holds no GitHub token.
+# The Temporal worker (M1 design D2, D4, D8). It manages sandboxes in factory8-sandboxes and holds no GitHub token.
 # Both image tags are Nix hashes: after `nix build .#worker-image` or `.#sandbox-image`, import the image and update its tag here.
+# Upgrading a cluster installed with the old f8-* names: follow deploy/rename-cutover.md first.
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: f8-worker
+  name: factory8-worker
   namespace: factory8
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: f8-worker
-  namespace: f8-sandboxes
+  name: factory8-worker
+  namespace: factory8-sandboxes
 rules:
   - apiGroups: [""]
     resources: [pods]
@@ -22,39 +23,49 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: f8-worker
-  namespace: f8-sandboxes
+  name: factory8-worker
+  namespace: factory8-sandboxes
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: f8-worker
+  name: factory8-worker
 subjects:
   - kind: ServiceAccount
-    name: f8-worker
+    name: factory8-worker
     namespace: factory8
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: f8-worker
+  name: factory8-worker
   namespace: factory8
 spec:
   replicas: 1
-  selector: { matchLabels: { app: f8-worker } }
+  selector: { matchLabels: { app: factory8-worker } }
   template:
-    metadata: { labels: { app: f8-worker } }
+    metadata: { labels: { app: factory8-worker } }
     spec:
-      serviceAccountName: f8-worker
+      serviceAccountName: factory8-worker
       containers:
         - name: worker
-          image: factory8-worker:clap1y9c41vs46wjwnblcw5p5i5rl5sx
+          image: factory8-worker:w6bv0pmnwjxy42bdx747zmm7mxp2hnqd
           imagePullPolicy: Never
           env:
             - name: TEMPORAL_ADDRESS
               value: temporal-frontend:7233
-            - name: F8_MODEL
+            - name: FACTORY8_MODEL
               value: glm-5.3
-            - name: F8_REVIEW_MODEL
-              value: glm-5.3-flash
-            - name: F8_IMAGES
+            - name: FACTORY8_REVIEW_MODEL
+              value: glm-5.3
+            - name: FACTORY8_IMAGES
               value: '{"https://github.com/factory8/factory8": "factory8-sandbox:zqwxsvfk7bhzz2nl6w85nkqfi8ipzk9f"}'
+            - name: FACTORY8_PLUGIN
+              value: https://github.com/factory8/factory8
+            - name: FACTORY8_BANDS
+              value: >-
+                {"design": {"model": "glm-5.3", "effort": "high"},
+                "acceptance": {"model": "glm-5.3", "effort": "high"},
+                "implement": [{"model": "glm-5.3", "effort": "medium"}, {"model": "glm-5.3", "effort": "high"}],
+                "review": {"model": "glm-5.3", "effort": "high"},
+                "diagnose": {"model": "glm-5.3", "effort": "high"},
+                "finish": {"model": "glm-5.3-flash"}}

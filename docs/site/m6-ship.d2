@@ -1,7 +1,7 @@
 vars: {d2-config: {layout-engine: elk}}
 direction: down
 
-title: "M6 ship run: f8 run --flow ship 12 → a ready PR (the human merges)\nProposed in openspec/changes/m6-ship-workflow. Temporal holds the flow and its state; git holds only the work (design.md, tests, code, PR comments).\nBlue: an agent step in its own sandbox f8-<runId>-<stage>-<n>, running /factory8:<skill> and ending with a JSON result line · grey: workflow code or an activity\npurple: the engineer · dashed orange: a route back · orange: an end, which also runs finish (the PR stays a draft) · red: the run fails with no finish" {
+title: "M6 ship run: f8 run --flow ship 12 → a ready PR (the human merges)\nProposed in openspec/changes/m6-ship-workflow. Temporal holds the flow and its state; git holds only the work (design.md, tests, code, PR comments).\nBlue: an agent step in its own sandbox factory8-<runId>-<stage>, running /factory8:<skill> and ending with a JSON result line · grey: workflow code or an activity\npurple: the engineer · dashed orange: a route back · orange: an end, which also runs finish (the PR stays a draft) · red: the run fails with no finish" {
   near: top-center
   shape: text
   style.font-size: 18
@@ -20,8 +20,8 @@ classes: {
 }
 
 cli: "f8 run --flow ship 12 (engineer's laptop)\nstarts shipWorkflow {runId, repo, issue}; every 10 s it reads the state query\n(stage, attempt, risk, PR, open question, each step's model and result)\nand prints new stages, and questions with the f8 answer line" {class: human}
-config: "shipConfig (activity, no sandbox)\nreads F8_BANDS and F8_PLUGIN once per run;\nevery step loads the plugin as of the run's start time" {class: wf}
-bad_bands: "bad_bands: a key is missing, or review / diagnose\nuses an author's model (DEP-11); fails before any sandbox" {class: fail}
+config: "shipConfig (activity, no sandbox)\nreads FACTORY8_BANDS and FACTORY8_PLUGIN once per run;\nevery step loads the plugin as of the run's start time" {class: wf}
+bad_bands: "bad_bands: a key is missing\nor implement is empty; fails before any sandbox" {class: fail}
 
 cli -> config
 config -> bad_bands {style.stroke: "#e53935"}
@@ -50,7 +50,7 @@ contract: "Contract: graded before any code (2 grades at most)" {
 }
 
 loop: "Implement loop (every new loop starts again at ladder profile 1)" {
-  implement: "implement-n\n/factory8:implement\nattempt k runs on F8_BANDS.implement[k]\n(profile 1 → 2 → 3, the last repeats);\na rework gets the blocking findings" {class: step}
+  implement: "implement-n\n/factory8:implement\nattempt k runs on FACTORY8_BANDS.implement[k]\n(profile 1 → 2 → 3, the last repeats);\na rework gets the blocking findings" {class: step}
   review: "code-review-n  (risk high: n-a ∥ n-b, two sandboxes)\n/factory8:review mode=code\n1. runs the repo's checks: a failure is a blocker\n2. git diff tests_sha sha -- tests: any diff is critical\n3. ranked findings: only blocker and critical send work back" {class: step}
   pass: "every reviewer\nSHIP?" {class: decide}
   fails: "failed attempts\nin this loop" {class: decide}
@@ -106,8 +106,8 @@ finish -> done_fail: "any other end" {class: end}
 every_step: "Inside every blue box: one step(); finally, deleteSandbox (the pod goes, the PVC stays)" {
   near: top-right
   style: {fill: "#fafafa"; stroke-dash: 4}
-  create: "createSandbox\npod + PVC f8-<runId>-<stage>-<n>\n(409, already there: reused)" {class: wf}
-  start: "startStep: POST /steps\nline 1: /factory8:<skill> 12 key=value…\nline 2: one JSON context object\nprofile from F8_BANDS\nplugin {url: F8_PLUGIN, at: run start}" {class: wf}
+  create: "createSandbox\npod + PVC factory8-<runId>-<stage>\n(409, already there: reused)" {class: wf}
+  start: "startStep: POST /steps\nline 1: /factory8:<skill> 12 key=value…\nline 2: one JSON context object\nprofile from FACTORY8_BANDS\nplugin {url: FACTORY8_PLUGIN, at: run start}" {class: wf}
   agent: "f8-adapter in the sandbox\nchecks the plugin out as of at, into /f8/plugin;\nclaude -p --plugin-dir …\n--append-system-prompt <preamble>" {class: step}
   poll: "pollStep\nuntil an exit event" {class: wf}
   ask: "needs_input (the agent ran f8-ask)\ndelete the pod, keep the PVC;\nstate.question is set; wait for the answer signal" {class: human}

@@ -53,8 +53,8 @@ The adapter SHALL run `claude -p --output-format stream-json --verbose --dangero
 Every fresh session's prompt SHALL start with: "You are working in `/f8/work` on branch `<branch>`. Commit and push your work before you finish. If you need a decision only a human can make, run `f8-ask "<question>"` and stop; don't guess. Finish with a short summary of what you did."
 
 #### Scenario: Branch named
-- **WHEN** a step starts on branch `f8/abc123`
-- **THEN** the preamble names `f8/abc123` as the branch to push
+- **WHEN** a step starts on branch `factory8/abc123`
+- **THEN** the preamble names `factory8/abc123` as the branch to push
 
 ### Requirement: Progress events
 Each tool call in the CLI's stream SHALL become a `progress` event whose text is the tool name and its main argument (first line, at most 200 characters), appended to `/f8/state/events.jsonl`. Every event has a `seq` that increases across steps and an ISO `at` time.

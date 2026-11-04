@@ -9,7 +9,7 @@ import type { EventBody, StepEvent, StepRequest } from './types.ts';
 
 interface AnswerRequest { answer: string }
 
-const ROOT = process.env.F8_ROOT ?? '/f8';
+const ROOT = process.env.FACTORY8_ROOT ?? '/f8';
 const WORK = `${ROOT}/work`, HOME = `${ROOT}/home`, STATE = `${ROOT}/state`, PLUGIN = `${ROOT}/plugin`;
 const exec = promisify(execFile);
 const git = (...args: string[]) => exec('git', ['-C', WORK, ...args]);

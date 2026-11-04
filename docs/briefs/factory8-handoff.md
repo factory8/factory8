@@ -42,7 +42,7 @@ Read this first, then `docs/PRD.md`. These are the author's notes for Factory8, 
 - **Keep Phase 0 minimal:** trust the agent's `done`; `failed` carries plain reason text; the agent commits and pushes its own work.
 - **Session logs (AGT-11):** the vendor `*.jsonl` files and the adapter's event log stay on the run's PVC, which outlives the sandbox. Nothing is uploaded (changed 2026-10-23; Claude Code resumes from the file alone).
 - **LLM gateway = LiteLLM:** a LibrePod marketplace app the user installs on the pilot cluster from its UI (task 1.2). Temporal gets its own Postgres.
-- **Sandboxes are plain Kata pods (2026-10-23):** agent-sandbox is dropped. The worker creates a PVC and a pod per run, both named `f8-<runId>`. Suspend deletes the pod and keeps the PVC (M1 design D2; PRD SBX-1).
+- **Sandboxes are plain Kata pods (2026-10-23):** agent-sandbox is dropped. The worker creates a PVC and a pod per run, both named `factory8-<runId>`. Suspend deletes the pod and keeps the PVC (M1 design D2; PRD SBX-1).
 - **POC first:**
   - No git gateway. A GitHub token (`GH_TOKEN`) and one static LiteLLM key reach the sandbox from a Kubernetes Secret, and the agent pushes directly (`sandbox` spec in the M1 change).
   - This is tracked as [#1](https://github.com/factory8/factory8/issues/1) (label `hardening`).
@@ -66,7 +66,7 @@ Task 1.D is done (2026-10-23): D1–D8 in M1's `design.md` are all decided with 
 - D5: `f8 run <issue>` builds the repo URL from `origin`; Ctrl-C only detaches.
 - D6: the agent opens the draft PR.
 - D7: workspaces `adapter/`, `worker/` and `cli/`; workflow tests in Temporal's local mode.
-- D8: the worker's settings are `TEMPORAL_ADDRESS`, `F8_MODEL` and `F8_IMAGES`; the default profile is filled in by `startStep`.
+- D8: the worker's settings are `TEMPORAL_ADDRESS`, `FACTORY8_MODEL` and `FACTORY8_IMAGES`; the default profile is filled in by `startStep`.
 
 **Start with** the tasks that need nothing else (see M1's `tasks.md`):
 - 1.1 cluster setup (*user* + me) and 1.2 LiteLLM check (*user*), which need the user at the cluster;
@@ -94,7 +94,7 @@ Task 1.D is done (2026-10-23): D1–D8 in M1's `design.md` are all decided with 
 - **Claude Code, verified:** a failed `--resume` exits with code 1 and emits no `init` event. The adapter treats that as the signal to fall back to a fresh session plus the handoff note.
 - **`pkill -f "<pattern>"`** also kills the shell that runs it. Use `pkill -f "[a]dapter/src/main.ts"`.
 - **`nix develop`** prints a "Git tree is dirty" warning; it's harmless.
-- **Testing the adapter on a host:** it sets `HOME=$F8_ROOT/home`, so the CLI has no login there. Symlink `~/.claude/.credentials.json` into that home for the local test only, then delete it.
+- **Testing the adapter on a host:** it sets `HOME=$FACTORY8_ROOT/home`, so the CLI has no login there. Symlink `~/.claude/.credentials.json` into that home for the local test only, then delete it.
 
 ## Still open
 
