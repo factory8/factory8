@@ -49,7 +49,7 @@ export async function createSandbox(runId: string, stage: string, repo: string):
   }
 }
 
-// The workflow names the role, the activity knows the settings; the reviewer model differs (M5 D7, DEP-11).
+// The workflow names the role, the activity knows the settings (M5 D7).
 // A ship step brings its own profile (M6 D1), which wins.
 export type Role = 'author' | 'reviewer';
 export type Profile = { model: string; effort?: string };
@@ -67,7 +67,7 @@ export async function answerStep(ip: string, stepId: string, answer: string) {
 
 export interface Bands { design: Profile; acceptance: Profile; implement: Profile[]; review: Profile; diagnose: Profile; finish: Profile }
 
-// The ship run's settings, read once per run so its history holds them (M6 D9). DEP-11: reviewers aren't authors' models.
+// The ship run's settings, read once per run so its history holds them (M6 D9).
 export async function shipConfig(): Promise<{ bands: Bands; plugin: string }> {
   const bad = (why: string) => ApplicationFailure.nonRetryable(`bad FACTORY8_BANDS: ${why}`, 'bad_bands');
   let b: Bands;
@@ -76,9 +76,6 @@ export async function shipConfig(): Promise<{ bands: Bands; plugin: string }> {
   for (const k of ['design', 'acceptance', 'review', 'diagnose', 'finish'] as const)
     if (!one(b?.[k])) throw bad(`${k} needs a model`);
   if (!Array.isArray(b.implement) || !b.implement.length || !b.implement.every(one)) throw bad('implement needs a non-empty list of models');
-  const authors = [b.design, b.acceptance, ...b.implement].map(p => p.model);
-  for (const k of ['review', 'diagnose'] as const)
-    if (authors.includes(b[k].model)) throw bad(`${k} model ${b[k].model} is an author model`);
   if (!process.env.FACTORY8_PLUGIN) throw bad('FACTORY8_PLUGIN is not set');
   return { bands: b, plugin: process.env.FACTORY8_PLUGIN };
 }

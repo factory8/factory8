@@ -241,11 +241,15 @@ A run SHALL read the installation's `FACTORY8_BANDS` setting once, when it start
 - one profile (model, optional effort) each for design, acceptance, review, diagnose and finish;
 - a list of profiles for implement.
 
-The run SHALL fail at its start when any of them is missing, or when the review or diagnose model is a design, acceptance or implement model (DEP-11).
+The run SHALL fail at its start when any of them is missing. Any stage MAY use any model, the authors' included: each step's own sandbox and empty session keep a review independent (DEP-11).
 
-#### Scenario: Reviewer on an author's model
-- **WHEN** `FACTORY8_BANDS` gives review the same model as one implement profile
-- **THEN** the run fails before any sandbox starts, naming that model
+#### Scenario: A missing band
+- **WHEN** `FACTORY8_BANDS` has no `finish` profile
+- **THEN** the run fails with `bad_bands` before any sandbox starts
+
+#### Scenario: One model for every stage
+- **WHEN** `FACTORY8_BANDS` gives review and diagnose the same model as implement
+- **THEN** the run starts, and each review runs in its own sandbox with an empty session
 
 ### Requirement: Agents never merge
 No step SHALL merge the PR or push to the default branch. The human merges or not in GitHub, and nothing in the run waits on that decision (G4, DEP-2).

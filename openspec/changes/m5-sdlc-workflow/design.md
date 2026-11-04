@@ -104,7 +104,7 @@ The proposal's "Not in M5" lists the rest.
 
 **Proposed:** a worker setting `FACTORY8_REVIEW_MODEL`, next to `FACTORY8_MODEL` (M1 D8).
 - `startStep(ip, request, role)` fills the profile: `{ vendor: 'claude-code', model }`, with `FACTORY8_REVIEW_MODEL` for `role: 'reviewer'` and `FACTORY8_MODEL` for `'author'` (plan, build, fix).
-- The worker refuses to start when `FACTORY8_REVIEW_MODEL` is missing or equals `FACTORY8_MODEL`, so a review never runs on the author's model (DEP-11).
+- The worker refuses to start when `FACTORY8_REVIEW_MODEL` is missing. It may equal `FACTORY8_MODEL` (relaxed 2026-11-04: isolation, not a different model, keeps a review independent; DEP-11); an earlier draft refused that too.
 - **On the pilot cluster:** the user picks the reviewer model, and adds it to LiteLLM if it isn't `glm-5.3-flash` (today LiteLLM has only `glm-5.3` and `glm-5.3-flash`). Its name goes into `deploy/worker.yaml`.
 - **Why the role is passed explicitly:** the workflow knows which step reviews, and the activity knows the settings. Passing the role keeps both facts where they are, with no stage-name parsing in the activity.
 - **Rejected:**

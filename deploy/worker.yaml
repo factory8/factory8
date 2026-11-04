@@ -60,3 +60,11 @@ spec:
               value: '{"https://github.com/factory8/factory8": "factory8-sandbox:zqwxsvfk7bhzz2nl6w85nkqfi8ipzk9f"}'
             - name: FACTORY8_PLUGIN
               value: https://github.com/factory8/factory8
+            - name: FACTORY8_BANDS
+              value: >-
+                {"design": {"model": "glm-5.3", "effort": "high"},
+                "acceptance": {"model": "glm-5.3", "effort": "high"},
+                "implement": [{"model": "glm-5.3", "effort": "medium"}, {"model": "glm-5.3", "effort": "high"}, {"model": "glm-5.3", "effort": "high"}],
+                "review": {"model": "glm-5.3", "effort": "high"},
+                "diagnose": {"model": "glm-5.3", "effort": "high"},
+                "finish": {"model": "glm-5.3-flash"}}

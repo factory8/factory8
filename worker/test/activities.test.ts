@@ -34,14 +34,12 @@ test('startStep sends FACTORY8_REVIEW_MODEL for the reviewer and FACTORY8_MODEL 
   ]);
 });
 
-test('the worker exits at start when FACTORY8_REVIEW_MODEL is missing or equals FACTORY8_MODEL', () => {
-  const base = { ...process.env };
-  delete base.FACTORY8_MODEL, delete base.FACTORY8_REVIEW_MODEL;
-  for (const env of [base, { ...base, FACTORY8_MODEL: 'glm-5.3', FACTORY8_REVIEW_MODEL: 'glm-5.3' }]) {
-    const p = spawnSync('node', [new URL('../src/main.ts', import.meta.url).pathname],{ env, encoding: 'utf8' });
-    assert.notEqual(p.status, 0, JSON.stringify(env));
-    assert.match(p.stderr, /FACTORY8_REVIEW_MODEL/);
-  }
+test('the worker exits at start when FACTORY8_REVIEW_MODEL is missing', () => {
+  const env = { ...process.env };
+  delete env.FACTORY8_REVIEW_MODEL;
+  const p = spawnSync('node', [new URL('../src/main.ts', import.meta.url).pathname],{ env, encoding: 'utf8' });
+  assert.notEqual(p.status, 0);
+  assert.match(p.stderr, /FACTORY8_REVIEW_MODEL/);
 });
 
 const withEnv = async <T>(env: Record<string, string | undefined>, f: () => Promise<T>) => {
@@ -54,15 +52,17 @@ const withEnv = async <T>(env: Record<string, string | undefined>, f: () => Prom
 const bands = { design: { model: 'a' }, acceptance: { model: 'a', effort: 'high' }, implement: [{ model: 'b' }, { model: 'a' }],
   review: { model: 'r' }, diagnose: { model: 'r' }, finish: { model: 'b' } };
 
-test('shipConfig returns the bands and the plugin URL', async () => {
-  const c = await withEnv({ FACTORY8_BANDS: JSON.stringify(bands), FACTORY8_PLUGIN: 'https://github.com/o/p' }, shipConfig);
-  assert.deepEqual(c, { bands, plugin: 'https://github.com/o/p' });
+test('shipConfig returns the bands and the plugin URL, also with one model for every stage (DEP-11)', async () => {
+  const one = { ...bands, review: { model: 'a' }, diagnose: { model: 'a' } };
+  for (const b of [bands, one]) {
+    const c = await withEnv({ FACTORY8_BANDS: JSON.stringify(b), FACTORY8_PLUGIN: 'https://github.com/o/p' }, shipConfig);
+    assert.deepEqual(c, { bands: b, plugin: 'https://github.com/o/p' });
+  }
 });
 
-test('shipConfig fails with bad_bands on a missing key, an empty implement, or an author model as reviewer', async () => {
+test('shipConfig fails with bad_bands on a missing key or an empty implement', async () => {
   const cases = [
-    { ...bands, finish: undefined }, { ...bands, implement: [] },
-    { ...bands, review: { model: 'b' } }, { ...bands, diagnose: { model: 'a' } },
+    { ...bands, finish: undefined }, { ...bands, implement: [] }, { ...bands, review: { model: '' } },
   ];
   for (const c of cases)
     await assert.rejects(withEnv({ FACTORY8_BANDS: JSON.stringify(c), FACTORY8_PLUGIN: 'u' }, shipConfig),
