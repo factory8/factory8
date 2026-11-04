@@ -12,9 +12,9 @@ Implemented directly in-session, not dogfooded through `f8 run` (the user ditche
 
   `taskPrompt` and its CLI test are removed.
 - [x] 5.2 `sdlcWorkflow` replaces `runWorkflow`, with a sandbox per step and the reviewer model (design D1, D2, D3, D4, D7; after 5.1). Done when:
-  - A test shows that `sandboxPod(runId, stage, image)` names the pod and its PVC claim `f8-<runId>-<stage>` and adds the label `f8/step`.
-  - A test shows that `startStep` sends `F8_REVIEW_MODEL` for the reviewer role and `F8_MODEL` otherwise.
-  - The worker exits at start when `F8_REVIEW_MODEL` is missing or equals `F8_MODEL`.
+  - A test shows that `sandboxPod(runId, stage, image)` names the pod and its PVC claim `factory8-<runId>-<stage>` and adds the label `factory8/step`.
+  - A test shows that `startStep` sends `FACTORY8_REVIEW_MODEL` for the reviewer role and `FACTORY8_MODEL` otherwise.
+  - The worker exits at start when `FACTORY8_REVIEW_MODEL` is missing or equals `FACTORY8_MODEL`.
   - Workflow tests in local mode (M1 D7), with mocked activities, cover:
     - ready on the first review: steps `plan`, `build` and `review-1` in order, each with its own create and delete (`runId`, stage), step IDs `<runId>.<stage>.1`, and the reviewer role only on review;
     - one fix round;
@@ -24,7 +24,7 @@ Implemented directly in-session, not dogfooded through `f8 run` (the user ditche
 
   `npm test` and `npm run typecheck` pass.
 - [x] 5.3 `f8 run` starts `sdlcWorkflow` (after 5.2). Done when: it starts `sdlcWorkflow` with `{ runId, repo, issue }` and prints the result's summary, or the reason and a non-zero exit on failure (`f8-cli` spec). The CLI tests and `npm run typecheck` pass
-- [x] 5.4 Deploy (*user* + me; after 5.3; design Migration Plan). Done when: LiteLLM serves the reviewer model the *user* picked; the new `worker-image` is imported onto the node; `deploy/worker.yaml` has its tag and `F8_REVIEW_MODEL`; it's applied with no run in flight. A run started with `temporal workflow execute` on a throwaway issue gets past the plan step with pod `f8-<runId>-plan` deleted afterwards
+- [x] 5.4 Deploy (*user* + me; after 5.3; design Migration Plan). Done when: LiteLLM serves the reviewer model the *user* picked; the new `worker-image` is imported onto the node; `deploy/worker.yaml` has its tag and `FACTORY8_REVIEW_MODEL`; it's applied with no run in flight. A run started with `temporal workflow execute` on a throwaway issue gets past the plan step with pod `factory8-<runId>-plan` deleted afterwards
 - [ ] 5.5 First SDLC run (after 5.4). Done when:
   - An issue on factory8/factory8 goes through `f8 run` to a PR that has `.factory8/runs/<runId>/plan.md`, the code, and at least one review comment with ranked findings; the PR is ready for review and unmerged.
   - `f8 run` printed the final review's summary.

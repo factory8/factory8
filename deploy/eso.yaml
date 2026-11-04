@@ -1,12 +1,12 @@
 apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
-  name: f8-sandbox-settings
+  name: factory8-sandbox-settings
   namespace: factory8-sandboxes
 spec:
   dataFrom:
   - extract:
-      key: apps/f8-sandbox
+      key: apps/factory8-sandbox
   refreshInterval: 5m
   secretStoreRef:
     kind: ClusterSecretStore
@@ -14,7 +14,7 @@ spec:
   target:
     creationPolicy: Owner
     deletionPolicy: Retain
-    name: f8-sandbox
+    name: factory8-sandbox
 ---
 # Postgres's POSTGRES_PASSWORD; Temporal reads it too (M1 design D4)
 apiVersion: external-secrets.io/v1

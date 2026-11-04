@@ -81,7 +81,7 @@
   - the *user* has added a third LiteLLM model, or chosen an effort-only ladder;
   - whether `--effort` reaches the provider is recorded in D9;
   - both images are imported;
-  - `deploy/worker.yaml` has their tags, `F8_BANDS` and `F8_PLUGIN`, and is applied with no run in flight;
+  - `deploy/worker.yaml` has their tags, `FACTORY8_BANDS` and `FACTORY8_PLUGIN`, and is applied with no run in flight;
   - an M5 run still gets past its plan step.
 - [ ] 6.11 First ship runs (after 6.10). Done when, on factory8/factory8:
   - an issue goes through `f8 run --flow ship` to a PR that is ready and unmerged, with:

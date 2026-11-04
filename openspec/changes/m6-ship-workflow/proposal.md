@@ -19,7 +19,7 @@ M6 runs next to M5's `sdlcWorkflow`, which stays. It comes after M5 and before M
 ## What Changes
 
 - **`f8 run --flow ship <issue>` starts a ship run**, a new workflow type, `shipWorkflow`. `f8 run <issue>` still starts M5's run. One issue is one task: there is no splitting.
-- **A sandbox per step, as in M5:** every step, including every attempt and every reviewer, gets its own pod and PVC, `f8-<runId>-<stage>-<n>`.
+- **A sandbox per step, as in M5:** every step, including every attempt and every reviewer, gets its own pod and PVC, `factory8-<runId>-<stage>-<n>`.
 - **Stages:**
   1. **design:** commits `.factory8/runs/<runId>/design.md` and opens the draft PR. The design holds the acceptance rows (behaviour → test), the done-when criteria, the files, a risk of `low` or `high`, the decisions and assumptions, and test-first steps (BLD-1, ART-1).
   2. **design review:** a reviewer grades the design. Up to two rounds (MNT-6).
@@ -42,7 +42,7 @@ M6 runs next to M5's `sdlcWorkflow`, which stays. It comes after M5 and before M
   - A diagnosis that needs a human decision waits the same way.
   - `f8 answer <run> "<text>"` sends the signal.
 - **Run state is the workflow's:** a `state` query returns the stage, the attempt, the risk, the PR, the open question and every step's result. `f8 run --flow ship` prints stage changes and questions from it.
-- **Models per stage and per attempt:** a worker setting, `F8_BANDS`, which the run reads once at its start (ORC-2, AGT-3). Review and diagnose models must not be any author stage's model (DEP-11).
+- **Models per stage and per attempt:** a worker setting, `FACTORY8_BANDS`, which the run reads once at its start (ORC-2, AGT-3). Review and diagnose models must not be any author stage's model (DEP-11).
 - **The adapter, changed once:**
   - the protocol preamble moves to the system prompt, so a prompt can start with a slash command;
   - a step can load the `factory8` plugin as it was at the run's start time.
@@ -77,12 +77,12 @@ Not in M6:
 
 - **Worker:**
   - new `worker/src/ship.ts` (the workflow, its constants and its routing) and `worker/src/results.ts` (parsing results, rendering commands);
-  - `worker/src/activities.ts` gains `shipConfig` (reads `F8_BANDS` and `F8_PLUGIN`) and `answerStep`, and `startStep` keeps the request's profile when there is one;
+  - `worker/src/activities.ts` gains `shipConfig` (reads `FACTORY8_BANDS` and `FACTORY8_PLUGIN`) and `answerStep`, and `startStep` keeps the request's profile when there is one;
   - M5's per-step sandbox activities are reused unchanged.
 - **Adapter:** `adapter/src/main.ts` and `types.ts`. The sandbox image is rebuilt.
 - **CLI:** `cli/src/main.ts` gains `--flow ship`, `f8 answer`, and printing from the state query.
 - **Plugin:** new `plugin/`, holding `.claude-plugin/plugin.json` and `skills/*/SKILL.md`.
-- **Deploy:** `deploy/worker.yaml` gains `F8_BANDS`, `F8_PLUGIN` and new image tags. A model ladder with a separate reviewer needs three models in LiteLLM, which has two today (*user*).
+- **Deploy:** `deploy/worker.yaml` gains `FACTORY8_BANDS`, `FACTORY8_PLUGIN` and new image tags. A model ladder with a separate reviewer needs three models in LiteLLM, which has two today (*user*).
 - **The pilot cluster:** a ship run leaves one PVC directory per step on the share, about 10 to 20; they are deleted by hand until ART-10.
 - **Docs:**
   - PRD §0 row and §8: Phase 0 gains M6 and M3 shrinks; TST-3, TST-5 and MNT-6 are pulled forward in their agent-checked form;

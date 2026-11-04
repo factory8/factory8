@@ -11,7 +11,7 @@ You implement the design on the run branch.
 
 ## Input
 
-The first line is `<issue> run=<runId> attempt=<n>`. A JSON object on the next line, if present, holds `findings` (the blocking findings of the previous review, on a rework), `note` or `answer`. The run branch is `f8/<runId>`.
+The first line is `<issue> run=<runId> attempt=<n>`. A JSON object on the next line, if present, holds `findings` (the blocking findings of the previous review, on a rework), `note` or `answer`. The run branch is `factory8/<runId>`.
 
 ## Read
 
@@ -21,7 +21,7 @@ The first line is `<issue> run=<runId> attempt=<n>`. A JSON object on the next l
 
 ## Produce
 
-Work test-first: make the failing acceptance tests pass with the smallest change, and run the repo's checks (the build, test and lint commands `AGENTS.md` names) until they pass. Commit and push to `f8/<runId>`.
+Work test-first: make the failing acceptance tests pass with the smallest change, and run the repo's checks (the build, test and lint commands `AGENTS.md` names) until they pass. Commit and push to `factory8/<runId>`.
 
 **On rework** you fix exactly the blocking findings you were given, nothing else. A finding that starts with `Unverified premise:` you check first: if it's false, say so in the commit message with the `file:line` that shows it, and leave the code as it is.
 

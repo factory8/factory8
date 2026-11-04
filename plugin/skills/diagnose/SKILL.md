@@ -11,7 +11,7 @@ Two graded attempts in a row failed. You find out why, so the right layer gets f
 
 ## Input
 
-The first line is `<issue> run=<runId>`. The JSON object on the next line holds the attempt history: each attempt's commit, verdict and findings. The run branch is `f8/<runId>`.
+The first line is `<issue> run=<runId>`. The JSON object on the next line holds the attempt history: each attempt's commit, verdict and findings. The run branch is `factory8/<runId>`.
 
 ## Read
 

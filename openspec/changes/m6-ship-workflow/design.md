@@ -18,7 +18,7 @@ The decisions below are proposals until the user agrees them.
 ## Context
 
 See proposal.md for why. M6 builds on M5, which is being implemented now. It reuses:
-- M5's per-step sandbox activities: `createSandbox(runId, stage, repo)`, `pollStep` and `deleteSandbox(runId, stage)`, named `f8-<runId>-<stage>`. `createSandbox` already ignores an existing PVC or pod (409).
+- M5's per-step sandbox activities: `createSandbox(runId, stage, repo)`, `pollStep` and `deleteSandbox(runId, stage)`, named `factory8-<runId>-<stage>`. `createSandbox` already ignores an existing PVC or pod (409).
 - The dumb worker (M1 D1): it manages sandboxes and calls the adapter; agents do all forge work with `gh`.
 - The adapter's question flow:
   - `f8-ask` ends a step with `needs_input`;
@@ -55,7 +55,7 @@ The proposal's "Not in M6" lists the rest.
 
 **Proposed:** `shipWorkflow({ runId, repo, issue })` in `worker/src/ship.ts`, re-exported from `worker/src/workflows.ts` so the worker registers both. Same worker, same task queue (`factory8`), and the run ID is the workflow ID, as before.
 - It reuses M5's activities and adds two:
-  - `shipConfig()` reads `F8_BANDS` and `F8_PLUGIN` once per run (D9);
+  - `shipConfig()` reads `FACTORY8_BANDS` and `FACTORY8_PLUGIN` once per run (D9);
   - `answerStep(ip, stepId, answer)` POSTs `/answer` (D10).
 - `startStep` keeps the request's `profile` when the workflow sets one; M5's role-based choice stays the fallback.
 - A local `step(stage, command, profile)` wraps M5's body: create, start, poll, delete in `finally`. It adds the plugin to the request (D4), handles `needs_input` by waiting (D10), and parses the result (D6).
@@ -72,7 +72,7 @@ The proposal's "Not in M6" lists the rest.
 | architect brief | design step, `.factory8/runs/<runId>/design.md` |
 | contract grade of the design / of the acceptance spec | design review / tests review, at most 2 grades each |
 | acceptance author (RED on main) | acceptance step (failing on the run branch) |
-| implement, attempts ladder in `bands.yaml` | implement, ladder in `F8_BANDS` |
+| implement, attempts ladder in `bands.yaml` | implement, ladder in `FACTORY8_BANDS` |
 | CI score before grading | the code reviewer runs the checks first (D11) |
 | grade, 2 graders when risk is high | code review, 2 reviewers when risk is high (D8) |
 | diagnose A–I, `ROUTE` table, re-architect next tick | diagnose A–I, routed inside the same run (D7) |
@@ -102,9 +102,9 @@ The proposal's "Not in M6" lists the rest.
 
 ### D4. Pinning the plugin to the run's start time
 
-**Proposed:** each `StepRequest` gets `plugin: { url: F8_PLUGIN, at: workflowInfo().startTime }`. The adapter checks out the last first-parent commit of the default branch made at or before `at` (`git rev-list -1 --first-parent --before=<at> origin/HEAD`).
+**Proposed:** each `StepRequest` gets `plugin: { url: FACTORY8_PLUGIN, at: workflowInfo().startTime }`. The adapter checks out the last first-parent commit of the default branch made at or before `at` (`git rev-list -1 --first-parent --before=<at> origin/HEAD`).
 - **Why the time:** the worker can't resolve a commit (Context), but the start time is fixed in the workflow's history. Every step of a run therefore sees the same commit, whatever lands meanwhile, and a replay sees the same value.
-- `F8_PLUGIN` is a worker setting: `https://github.com/factory8/factory8`.
+- `FACTORY8_PLUGIN` is a worker setting: `https://github.com/factory8/factory8`.
 - **Rejected:**
   - the first step resolving the commit and returning it: it changes the adapter's exit contract;
   - `f8` resolving it on the laptop: the engineer's credentials would decide, and the CLI would hold logic;
@@ -147,7 +147,7 @@ The function is pure, so it runs in workflow code. A missing or invalid result e
 
 ### D7. The loop, its caps and routing
 
-**Proposed:** the constants `CONTRACT_MAX = 2`, `REWORK_MAX = 2`, `DETERMINATE_EXTRA = 1` and `BOUNCES_MAX = 2` live in `ship.ts` (no speculative config, as M5 D4). They become `F8_BANDS` keys when someone needs to change one.
+**Proposed:** the constants `CONTRACT_MAX = 2`, `REWORK_MAX = 2`, `DETERMINATE_EXTRA = 1` and `BOUNCES_MAX = 2` live in `ship.ts` (no speculative config, as M5 D4). They become `FACTORY8_BANDS` keys when someone needs to change one.
 
 ```
 design ⇄ design review            (≤ CONTRACT_MAX grades, then escalated)
@@ -179,9 +179,9 @@ route back to design/acceptance ≤ BOUNCES_MAX, then escalated(bounces_exhauste
 - **Why the same model for both reviewers:** independence comes from fresh context and separate sandboxes, as with dark-factory's two graders. A second reviewer model would need a fourth LiteLLM model.
 - **Rejected:** a different vendor for the second reviewer, which waits for AGT-8.
 
-### D9. Models: `F8_BANDS`
+### D9. Models: `FACTORY8_BANDS`
 
-**Proposed:** a JSON worker setting, like `F8_IMAGES`:
+**Proposed:** a JSON worker setting, like `FACTORY8_IMAGES`:
 
 ```json
 { "design": {"model": "glm-5.3", "effort": "high"},
@@ -198,7 +198,7 @@ route back to design/acceptance ≤ BOUNCES_MAX, then escalated(bounces_exhauste
   - the review and diagnose models aren't any design, acceptance or implement model (DEP-11, M5's rule carried over).
 
   A failure ends the run as `bad_bands` before any sandbox starts. Finish may use any model, since it only posts what it's given.
-- **Why an env var:** `F8_IMAGES` set the precedent, and a change is a `deploy/worker.yaml` edit plus an apply.
+- **Why an env var:** `FACTORY8_IMAGES` set the precedent, and a change is a `deploy/worker.yaml` edit plus an apply.
 - **Rejected:**
   - a ConfigMap file: another object and another mount for one value;
   - models chosen per run by `f8`: the laptop can't see the installation's models (M5 D7).
@@ -281,8 +281,8 @@ route back to design/acceptance ≤ BOUNCES_MAX, then escalated(bounces_exhauste
 
 ## Migration Plan
 
-1. The *user* adds a third model to LiteLLM, or accepts an effort-only ladder, and picks `F8_BANDS`.
+1. The *user* adds a third model to LiteLLM, or accepts an effort-only ladder, and picks `FACTORY8_BANDS`.
 2. Build `sandbox-image` (the adapter changes) and `worker-image`, and import both onto the node.
-3. In `deploy/worker.yaml`: both tags, plus `F8_BANDS` and `F8_PLUGIN`. Apply it while no run is in flight. M5's runs behave as before.
+3. In `deploy/worker.yaml`: both tags, plus `FACTORY8_BANDS` and `FACTORY8_PLUGIN`. Apply it while no run is in flight. M5's runs behave as before.
 
 Rollback: the previous tags, and drop the two settings.

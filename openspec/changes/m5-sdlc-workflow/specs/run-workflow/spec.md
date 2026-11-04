@@ -25,11 +25,11 @@ Each step SHALL run in its own sandbox (`sandbox` spec), created for that step a
 - **THEN** that step's pod is deleted, and no other step's sandbox exists
 
 ### Requirement: Plan step
-The plan step's prompt SHALL ask the agent to read the issue and write `.factory8/runs/<runId>/plan.md` with the sections Files that change, Order of work, Risks and Proof. It SHALL also ask it to change no other file, push, and open a draft PR from `f8/<runId>`. The PR's title is the issue's title, and its body is the agent's summary, then `Run: <runId>` and `Fixes #<issue>`.
+The plan step's prompt SHALL ask the agent to read the issue and write `.factory8/runs/<runId>/plan.md` with the sections Files that change, Order of work, Risks and Proof. It SHALL also ask it to change no other file, push, and open a draft PR from `factory8/<runId>`. The PR's title is the issue's title, and its body is the agent's summary, then `Run: <runId>` and `Fixes #<issue>`.
 
 #### Scenario: Plan committed, PR opened
 - **WHEN** the plan step exits `done`
-- **THEN** the run branch has `.factory8/runs/<runId>/plan.md` and no other change, and a draft PR from `f8/<runId>` exists
+- **THEN** the run branch has `.factory8/runs/<runId>/plan.md` and no other change, and a draft PR from `factory8/<runId>` exists
 
 ### Requirement: Build step
 The build step's prompt SHALL ask the agent to implement `plan.md` and to run the repo's checks (its build, test and lint commands, as `AGENTS.md` names them), fixing what fails before it pushes. When the work departs from the plan, `plan.md` is updated in the same commit (BLD-2). The summary includes the checks' final output (TST-2).

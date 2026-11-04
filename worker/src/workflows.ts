@@ -17,7 +17,7 @@ async function step(repo: string, runId: string, stage: string, prompt: string, 
   const stepId = `${runId}.${stage}.1`;
   try {
     const ip = await createSandbox(runId, stage, repo);
-    await startStep(ip, { stepId, runId, prompt, repo: { url: repo, branch: `f8/${runId}` } }, role);
+    await startStep(ip, { stepId, runId, prompt, repo: { url: repo, branch: `factory8/${runId}` } }, role);
     const exit = await pollStep(ip, stepId);
     if (exit.status === 'done') return exit;
     // needs_input fails the run too: waiting for an answer comes in M3.

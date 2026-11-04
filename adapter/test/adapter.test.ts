@@ -58,7 +58,7 @@ async function adapter(port: number) {
 const step = (runId: string, prompt: string) => ({
   stepId: `${runId}.build.1`, runId, prompt,
   profile: { vendor: 'claude-code', model: 'haiku' },
-  repo: { url: `${tmp}/origin.git`, branch: `f8/${runId}` },
+  repo: { url: `${tmp}/origin.git`, branch: `factory8/${runId}` },
 });
 
 test('a step runs and pushes with the run trailer', async () => {
@@ -67,7 +67,7 @@ test('a step runs and pushes with the run trailer', async () => {
   const events = await a.untilExit('run1.build.1');
   assert.deepEqual(events.map(e => [e.type, e.text ?? e.status]), [['progress', 'Bash: git commit -m work'], ['exit', 'done']]);
   assert.equal(events[1].summary, 'did it');
-  assert.match(sh('git --git-dir origin.git log -1 --format=%B f8/run1'), /^Factory8-Run: run1$/m);
+  assert.match(sh('git --git-dir origin.git log -1 --format=%B factory8/run1'), /^Factory8-Run: run1$/m);
   assert.equal(await a.post('/steps', step('run1', 'do the work')), 202, 'repeated start is a no-op');
 });
 
@@ -99,7 +99,7 @@ test('the preamble rides the system prompt, and stdin holds the task prompt alon
   await a.post('/steps', step('run4', 'ASK first'));
   const [asked] = await a.untilExit('run4.build.1');
   const args = () => readFileSync(`${a.root}/args`, 'utf8');
-  assert.match(args(), /--append-system-prompt You are working in .*\/work. on branch .f8\/run4./);
+  assert.match(args(), /--append-system-prompt You are working in .*\/work. on branch .factory8\/run4./);
   assert.equal(readFileSync(`${a.root}/prompt`, 'utf8'), 'ASK first');
   assert.ok(!args().includes('--plugin-dir'));
   assert.ok(!existsSync(`${a.root}/plugin`));

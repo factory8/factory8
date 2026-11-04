@@ -3,13 +3,13 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: f8-worker
+  name: factory8-worker
   namespace: factory8
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: f8-worker
+  name: factory8-worker
   namespace: factory8-sandboxes
 rules:
   - apiGroups: [""]
@@ -22,29 +22,29 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: f8-worker
+  name: factory8-worker
   namespace: factory8-sandboxes
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: f8-worker
+  name: factory8-worker
 subjects:
   - kind: ServiceAccount
-    name: f8-worker
+    name: factory8-worker
     namespace: factory8
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: f8-worker
+  name: factory8-worker
   namespace: factory8
 spec:
   replicas: 1
-  selector: { matchLabels: { app: f8-worker } }
+  selector: { matchLabels: { app: factory8-worker } }
   template:
-    metadata: { labels: { app: f8-worker } }
+    metadata: { labels: { app: factory8-worker } }
     spec:
-      serviceAccountName: f8-worker
+      serviceAccountName: factory8-worker
       containers:
         - name: worker
           image: factory8-worker:clap1y9c41vs46wjwnblcw5p5i5rl5sx
@@ -52,9 +52,9 @@ spec:
           env:
             - name: TEMPORAL_ADDRESS
               value: temporal-frontend:7233
-            - name: F8_MODEL
+            - name: FACTORY8_MODEL
               value: glm-5.3
-            - name: F8_REVIEW_MODEL
+            - name: FACTORY8_REVIEW_MODEL
               value: glm-5.3-flash
-            - name: F8_IMAGES
+            - name: FACTORY8_IMAGES
               value: '{"https://github.com/factory8/factory8": "factory8-sandbox:zqwxsvfk7bhzz2nl6w85nkqfi8ipzk9f"}'

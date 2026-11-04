@@ -11,7 +11,7 @@ You write the tests first, as a separate agent from the one who implements. You 
 
 ## Input
 
-The first line is `<issue> run=<runId>`. A JSON object on the next line, if present, holds `findings` (blocking findings of the tests review) or `note` (why a later stage sent the work back). The run branch is `f8/<runId>`.
+The first line is `<issue> run=<runId>`. A JSON object on the next line, if present, holds `findings` (blocking findings of the tests review) or `note` (why a later stage sent the work back). The run branch is `factory8/<runId>`.
 
 ## Read
 
@@ -21,7 +21,7 @@ The first line is `<issue> run=<runId>`. A JSON object on the next line, if pres
 
 ## Produce
 
-For every acceptance row, a test with the name the design gives it, in the repo's own test setup. Run the tests on the run branch and show that each one fails because the behaviour is missing, not because of a typo or a broken setup. Commit and push to `f8/<runId>`.
+For every acceptance row, a test with the name the design gives it, in the repo's own test setup. Run the tests on the run branch and show that each one fails because the behaviour is missing, not because of a typo or a broken setup. Commit and push to `factory8/<runId>`.
 
 If the design can't be tested as written, stop with cause `B`. If the work is more than one reviewable change, stop with cause `C`.
 

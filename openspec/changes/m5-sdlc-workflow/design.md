@@ -43,7 +43,7 @@ The proposal's "Not in M5" lists the rest.
 **Proposed:** `sdlcWorkflow({ runId, repo, issue })` on task queue `factory8`, with the run ID as the workflow ID (as in M1).
 - It runs `plan`, `build` and `review-1`, then fix rounds (D4).
 - A local `step(stage, prompt, role)` holds M1's body, around one sandbox:
-  - `createSandbox(runId, stage, repo)`, `startStep` with step ID `<runId>.<stage>.1` and branch `f8/<runId>`, then `pollStep`;
+  - `createSandbox(runId, stage, repo)`, `startStep` with step ID `<runId>.<stage>.1` and branch `factory8/<runId>`, then `pollStep`;
   - `deleteSandbox(runId, stage)` in a `finally` block;
   - on `failed` or `needs_input`, a non-retryable failure, as in M1.
 - The result is the final review's exit, whose summary ends with the PR URL (D3), so `f8 run` prints it as before.
@@ -59,10 +59,10 @@ The proposal's "Not in M5" lists the rest.
 ### D2. Sandboxes are named per step; the adapter is unchanged
 
 **Proposed:**
-- `sandboxPod(runId, stage, image)`, `createSandbox(runId, stage, repo)` and `deleteSandbox(runId, stage)` name the pod and the PVC `f8-<runId>-<stage>`, at most 18 characters (`f8-k3x9qa-review-3`). The labels are `app: f8-sandbox`, `f8/run: <runId>` and `f8/step: <stage>`.
+- `sandboxPod(runId, stage, image)`, `createSandbox(runId, stage, repo)` and `deleteSandbox(runId, stage)` name the pod and the PVC `factory8-<runId>-<stage>`, at most 18 characters (`factory8-k3x9qa-review-3`). The labels are `app: factory8-sandbox`, `factory8/run: <runId>` and `factory8/step: <stage>`.
 - The worker's RBAC (create, get and delete pods; create and get PVCs) is unchanged.
 - **The adapter needs nothing:** each step's PVC starts empty, so it has no session to resume and the step starts a fresh one. A later attempt of the same step (M4) gets the same PVC back and resumes, as the `agent-adapter` spec already says.
-- **On the share,** each step leaves a directory `factory8-sandboxes/f8-<runId>-<stage>` with its session logs (AGT-11).
+- **On the share,** each step leaves a directory `factory8-sandboxes/factory8-<runId>-<stage>` with its session logs (AGT-11).
 - **Rejected:** a session-per-step fix in the adapter (an earlier draft of this design). Separate PVCs make it unnecessary.
 
 ### D3. The review verdict is the summary's last line
@@ -102,14 +102,14 @@ The proposal's "Not in M5" lists the rest.
 
 ### D7. The reviewer model
 
-**Proposed:** a worker setting `F8_REVIEW_MODEL`, next to `F8_MODEL` (M1 D8).
-- `startStep(ip, request, role)` fills the profile: `{ vendor: 'claude-code', model }`, with `F8_REVIEW_MODEL` for `role: 'reviewer'` and `F8_MODEL` for `'author'` (plan, build, fix).
-- The worker refuses to start when `F8_REVIEW_MODEL` is missing or equals `F8_MODEL`, so a review never runs on the author's model (DEP-11).
+**Proposed:** a worker setting `FACTORY8_REVIEW_MODEL`, next to `FACTORY8_MODEL` (M1 D8).
+- `startStep(ip, request, role)` fills the profile: `{ vendor: 'claude-code', model }`, with `FACTORY8_REVIEW_MODEL` for `role: 'reviewer'` and `FACTORY8_MODEL` for `'author'` (plan, build, fix).
+- The worker refuses to start when `FACTORY8_REVIEW_MODEL` is missing or equals `FACTORY8_MODEL`, so a review never runs on the author's model (DEP-11).
 - **On the pilot cluster:** the user picks the reviewer model, and adds it to LiteLLM if it isn't `glm-5.3-flash` (today LiteLLM has only `glm-5.3` and `glm-5.3-flash`). Its name goes into `deploy/worker.yaml`.
 - **Why the role is passed explicitly:** the workflow knows which step reviews, and the activity knows the settings. Passing the role keeps both facts where they are, with no stage-name parsing in the activity.
 - **Rejected:**
   - a profile chosen by `f8 run`: the laptop can't see the installation's settings, and nobody should pick models per run;
-  - letting the reviewer fall back to `F8_MODEL`: a silent fallback defeats the separation the user asked for;
+  - letting the reviewer fall back to `FACTORY8_MODEL`: a silent fallback defeats the separation the user asked for;
   - a different vendor: AGT-8, with Codex (AGT-2, Phase 1).
 
 ### D8. Docs and order
@@ -139,6 +139,6 @@ The proposal's "Not in M5" lists the rest.
 
 1. The user makes sure LiteLLM serves the reviewer model.
 2. Build `worker-image` and import it onto the node. The sandbox image is unchanged.
-3. Put its tag and `F8_REVIEW_MODEL` in `deploy/worker.yaml`, and apply it while no run is in flight.
+3. Put its tag and `FACTORY8_REVIEW_MODEL` in `deploy/worker.yaml`, and apply it while no run is in flight.
 
-Rollback: the previous tag, and drop `F8_REVIEW_MODEL`.
+Rollback: the previous tag, and drop `FACTORY8_REVIEW_MODEL`.

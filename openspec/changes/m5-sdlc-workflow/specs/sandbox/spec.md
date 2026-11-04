@@ -10,7 +10,7 @@ Each step of a run SHALL get its own sandbox: a pod on the Kata RuntimeClass, st
 - **THEN** a Kata pod runs the adapter, which answers on port 7070 from inside the cluster
 
 ### Requirement: Workspace volume
-Each step of a run SHALL get its own PVC, named `f8-<runId>-<stage>` (e.g. `f8-k3x9qa-review-1`), mounted at `/f8` and laid out as the `agent-adapter` spec says (SBX-12). A later attempt of the same step reuses its PVC. The sandbox is a plain pod; no sandbox controller is involved (SBX-1).
+Each step of a run SHALL get its own PVC, named `factory8-<runId>-<stage>` (e.g. `factory8-k3x9qa-review-1`), mounted at `/f8` and laid out as the `agent-adapter` spec says (SBX-12). A later attempt of the same step reuses its PVC. The sandbox is a plain pod; no sandbox controller is involved (SBX-1).
 
 #### Scenario: Volume mounted
 - **WHEN** the sandbox's pod starts
