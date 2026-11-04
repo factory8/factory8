@@ -1,7 +1,7 @@
 vars: {d2-config: {layout-engine: elk}}
 direction: down
 
-title: "M6 ship run: f8 run --flow ship 12 → a ready PR (the human merges)\nProposed in openspec/changes/m6-ship-workflow. Temporal holds the flow and its state; git holds only the work (design.md, tests, code, PR comments).\nBlue: an agent step in its own sandbox factory8-<runId>-<stage>-<n>, running /factory8:<skill> and ending with a JSON result line · grey: workflow code or an activity\npurple: the engineer · dashed orange: a route back · orange: an end, which also runs finish (the PR stays a draft) · red: the run fails with no finish" {
+title: "M6 ship run: f8 run --flow ship 12 → a ready PR (the human merges)\nProposed in openspec/changes/m6-ship-workflow. Temporal holds the flow and its state; git holds only the work (design.md, tests, code, PR comments).\nBlue: an agent step in its own sandbox factory8-<runId>-<stage>, running /factory8:<skill> and ending with a JSON result line · grey: workflow code or an activity\npurple: the engineer · dashed orange: a route back · orange: an end, which also runs finish (the PR stays a draft) · red: the run fails with no finish" {
   near: top-center
   shape: text
   style.font-size: 18
@@ -106,7 +106,7 @@ finish -> done_fail: "any other end" {class: end}
 every_step: "Inside every blue box: one step(); finally, deleteSandbox (the pod goes, the PVC stays)" {
   near: top-right
   style: {fill: "#fafafa"; stroke-dash: 4}
-  create: "createSandbox\npod + PVC factory8-<runId>-<stage>-<n>\n(409, already there: reused)" {class: wf}
+  create: "createSandbox\npod + PVC factory8-<runId>-<stage>\n(409, already there: reused)" {class: wf}
   start: "startStep: POST /steps\nline 1: /factory8:<skill> 12 key=value…\nline 2: one JSON context object\nprofile from FACTORY8_BANDS\nplugin {url: FACTORY8_PLUGIN, at: run start}" {class: wf}
   agent: "f8-adapter in the sandbox\nchecks the plugin out as of at, into /f8/plugin;\nclaude -p --plugin-dir …\n--append-system-prompt <preamble>" {class: step}
   poll: "pollStep\nuntil an exit event" {class: wf}

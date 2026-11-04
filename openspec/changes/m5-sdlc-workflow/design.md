@@ -59,7 +59,7 @@ The proposal's "Not in M5" lists the rest.
 ### D2. Sandboxes are named per step; the adapter is unchanged
 
 **Proposed:**
-- `sandboxPod(runId, stage, image)`, `createSandbox(runId, stage, repo)` and `deleteSandbox(runId, stage)` name the pod and the PVC `factory8-<runId>-<stage>`, at most 18 characters (`factory8-k3x9qa-review-3`). The labels are `app: factory8-sandbox`, `factory8/run: <runId>` and `factory8/step: <stage>`.
+- `sandboxPod(runId, stage, image)`, `createSandbox(runId, stage, repo)` and `deleteSandbox(runId, stage)` name the pod and the PVC `factory8-<runId>-<stage>`, such as `factory8-k3x9qa-review-3` (24 characters). The labels are `app: factory8-sandbox`, `factory8/run: <runId>` and `factory8/step: <stage>`.
 - The worker's RBAC (create, get and delete pods; create and get PVCs) is unchanged.
 - **The adapter needs nothing:** each step's PVC starts empty, so it has no session to resume and the step starts a fresh one. A later attempt of the same step (M4) gets the same PVC back and resumes, as the `agent-adapter` spec already says.
 - **On the share,** each step leaves a directory `factory8-sandboxes/factory8-<runId>-<stage>` with its session logs (AGT-11).

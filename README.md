@@ -19,7 +19,7 @@ Without Tailscale, leave `TEMPORAL_ADDRESS` unset (it defaults to `localhost:723
 
 **What happens**
 1. `f8` reads `owner/repo` from `origin`, picks a 6-character run ID and prints `run <id> started`.
-2. The worker creates a sandbox (pod and PVC `factory8-<id>` in `factory8-sandboxes`), and the agent clones the repo on branch `factory8/<id>`.
+2. The worker creates a sandbox for each step (pod and PVC `factory8-<id>-<step>` in `factory8-sandboxes`), and the agent clones the repo on branch `factory8/<id>`.
 3. The agent reads the issue with `gh`, does the work, pushes, and opens a draft PR whose body says `Fixes #12`. Its commits carry the trailer `Factory8-Run: <id>`.
 4. The sandbox pod is deleted, and `f8` prints the agent's summary, which ends with the PR's URL.
 
@@ -35,6 +35,6 @@ A small change takes about a minute.
 
 **Afterwards**
 - **Review the PR** like any other, then mark it ready and merge it. Prefer a merge commit or rebase: a squash drops the `Factory8-Run` trailer.
-- **Clean up by hand:** if you close the PR, delete its branch too. The PVC `factory8-<id>` stays on the share until you delete it (`kubectl -n factory8-sandboxes delete pvc factory8-<id>`).
+- **Clean up by hand:** if you close the PR, delete its branch too. The run's PVCs `factory8-<id>-<step>` stay on the share until you delete them (`kubectl -n factory8-sandboxes delete pvc -l factory8/run=<id>`).
 
 **Not there yet:** follow-ups on the same run (feedback, answers), cancelling a run, live progress (`f8 watch`), Docker inside the sandbox, and images for repos other than factory8/factory8.

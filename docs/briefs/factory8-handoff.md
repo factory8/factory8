@@ -94,7 +94,7 @@ Task 1.D is done (2026-10-23): D1–D8 in M1's `design.md` are all decided with 
 - **Claude Code, verified:** a failed `--resume` exits with code 1 and emits no `init` event. The adapter treats that as the signal to fall back to a fresh session plus the handoff note.
 - **`pkill -f "<pattern>"`** also kills the shell that runs it. Use `pkill -f "[a]dapter/src/main.ts"`.
 - **`nix develop`** prints a "Git tree is dirty" warning; it's harmless.
-- **Testing the adapter on a host:** it sets `HOME=$F8_ROOT/home`, so the CLI has no login there. Symlink `~/.claude/.credentials.json` into that home for the local test only, then delete it.
+- **Testing the adapter on a host:** it sets `HOME=$FACTORY8_ROOT/home`, so the CLI has no login there. Symlink `~/.claude/.credentials.json` into that home for the local test only, then delete it.
 
 ## Still open
 

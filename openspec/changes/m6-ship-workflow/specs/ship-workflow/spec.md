@@ -23,7 +23,7 @@ Between them it runs rework, diagnosis and routing. It ends with the PR ready fo
 - **THEN** the steps `design-1`, `design-review-1`, `acceptance-1`, `tests-review-1`, `implement-1`, `code-review-1` and `finish` run in that order, and the run succeeds with the PR's URL
 
 ### Requirement: A sandbox per step
-Every step of a ship run SHALL run in its own sandbox: a pod and a PVC named `factory8-<runId>-<stage>-<n>`, where `<n>` counts that stage's steps in the run. This includes each attempt and each reviewer. The pod SHALL be deleted when the step ends. A step SHALL see earlier steps' work only on the run branch `factory8/<runId>` and on the PR, never through their sessions or files.
+Every step of a ship run SHALL run in its own sandbox: a pod and a PVC named `factory8-<runId>-<stage>`, where `<stage>` ends with a count of that stage's steps in the run (`implement-2`, `code-review-1a`). This includes each attempt and each reviewer. The pod SHALL be deleted when the step ends. A step SHALL see earlier steps' work only on the run branch `factory8/<runId>` and on the PR, never through their sessions or files.
 
 #### Scenario: Attempts don't share a sandbox
 - **WHEN** a second implement attempt starts

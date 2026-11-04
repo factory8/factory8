@@ -19,7 +19,7 @@ M6 runs next to M5's `sdlcWorkflow`, which stays. It comes after M5 and before M
 ## What Changes
 
 - **`f8 run --flow ship <issue>` starts a ship run**, a new workflow type, `shipWorkflow`. `f8 run <issue>` still starts M5's run. One issue is one task: there is no splitting.
-- **A sandbox per step, as in M5:** every step, including every attempt and every reviewer, gets its own pod and PVC, `factory8-<runId>-<stage>-<n>`.
+- **A sandbox per step, as in M5:** every step, including every attempt and every reviewer, gets its own pod and PVC, `factory8-<runId>-<stage>`.
 - **Stages:**
   1. **design:** commits `.factory8/runs/<runId>/design.md` and opens the draft PR. The design holds the acceptance rows (behaviour → test), the done-when criteria, the files, a risk of `low` or `high`, the decisions and assumptions, and test-first steps (BLD-1, ART-1).
   2. **design review:** a reviewer grades the design. Up to two rounds (MNT-6).

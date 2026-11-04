@@ -13,11 +13,11 @@ sh('git init -q -b master seed && git -C seed -c user.name=t -c user.email=t@t c
 mkdirSync(`${tmp}/bin`);
 writeFileSync(`${tmp}/bin/claude`, `#!/bin/sh
 prompt=$(cat)
-printf '%s' "$*" > "$F8_ROOT/args"; printf '%s' "$prompt" > "$F8_ROOT/prompt"
+printf '%s' "$*" > "$FACTORY8_ROOT/args"; printf '%s' "$prompt" > "$FACTORY8_ROOT/prompt"
 echo '{"type":"system","subtype":"init","session_id":"s1"}'
 case "$*" in *--resume*) printf '{"type":"result","result":"resumed with %s"}\\n' "$prompt"; exit 0;; esac
 case "$prompt" in *ASK*) f8-ask "Which DB?" >/dev/null; exit 0;; esac
-case "$prompt" in *SLOW*) sleep 300 >/dev/null 2>&1 & echo $! > "$F8_ROOT/sleep.pid"; wait; exit 0;; esac
+case "$prompt" in *SLOW*) sleep 300 >/dev/null 2>&1 & echo $! > "$FACTORY8_ROOT/sleep.pid"; wait; exit 0;; esac
 echo '{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"git commit -m work"}}]}}'
 echo x > f && git add f && git commit -qm work && git push -q origin HEAD
 echo '{"type":"result","result":"did it"}'
@@ -34,7 +34,7 @@ after(() => { adapters.forEach(a => a.kill()); });
 async function adapter(port: number) {
   const root = mkdtempSync(join(tmp, 'f8-'));
   adapters.push(spawn(process.execPath, [join(import.meta.dirname, '../src/main.ts'), 'serve'], {
-    env: { ...process.env, F8_ROOT: root, PORT: String(port), PATH: `${tmp}/bin:${join(import.meta.dirname, '../bin')}:${process.env.PATH}` },
+    env: { ...process.env, FACTORY8_ROOT: root, PORT: String(port), PATH: `${tmp}/bin:${join(import.meta.dirname, '../bin')}:${process.env.PATH}` },
     stdio: 'inherit',
   }));
   const base = `http://localhost:${port}`;
