@@ -1,5 +1,5 @@
 // The ship run (M6 design D1, D2, D7–D12): one issue through design, tests, implementation and review, each step in its own sandbox.
-import { ApplicationFailure, proxyActivities, workflowInfo } from '@temporalio/workflow';
+import { ApplicationFailure, proxyActivities } from '@temporalio/workflow';
 import type * as activities from './activities.ts';
 import { run, type RunInput, type RunState as Base } from './flow.ts';
 import { blocking, command, parseResult, passes, report, type Finding, type Review, type Skill } from './results.ts';
@@ -25,7 +25,6 @@ export async function shipWorkflow(input: RunInput) {
   const causes: { cause: string; note: string }[] = [];
   const counts: Record<string, number> = {};
   const { bands, plugin } = await shipConfig(); // before any sandbox, so bad settings fail the run at once
-  const at = workflowInfo().startTime.toISOString();
 
   const count = (kind: string) => counts[kind] = (counts[kind] ?? 0) + 1;
   const cmd = (skill: Skill, args: Record<string, string | number | undefined>, ctx?: unknown) =>
@@ -33,7 +32,7 @@ export async function shipWorkflow(input: RunInput) {
 
   // A stage's step (flow.ts) with its profile and the pinned plugin; a result the skill's shape rejects parks the run (H).
   const step = <K extends Skill>(kind: K, stage: string, prompt: string, profile: activities.Profile) =>
-    runStep(stage, prompt, { profile, plugin: { url: plugin, at }, parse: s => {
+    runStep(stage, prompt, { profile, plugin, parse: s => {
       try { return parseResult(kind, s); } catch (e) { throw new Ended('parked', 'H', `${stage}: ${(e as Error).message}`); }
     } });
 

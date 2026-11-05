@@ -29,7 +29,7 @@
   - `worker/src/queue.ts` has `taskQueue(repo)`, with a test: `https://github.com/librepod/marketplace` → `factory8/librepod/marketplace`, and a URL that isn't a lowercase GitHub repo URL throws;
   - `worker/src/main.ts` loads the bundle at `FACTORY8_WORKFLOW_BUNDLE`, or bundles `./workflows.ts` once without it, runs one worker per key of `FACTORY8_IMAGES` with `workflowFailureErrorTypes: { '*': ['Error'] }`, and exits with an error when `FACTORY8_IMAGES` is unset, empty, or has a key `taskQueue` rejects;
   - by hand against `temporal server start-dev`, with two repos in `FACTORY8_IMAGES`: `temporal task-queue describe` shows a poller on both queues and none on `factory8`.
-- [ ] 7.4 The plugin pinned to a commit (design D9; `agent-adapter` and `ship-workflow` deltas; after 7.2). Done when:
+- [x] 7.4 The plugin pinned to a commit (design D9; `agent-adapter` and `ship-workflow` deltas; after 7.2). Done when:
   - the adapter checks out the `StepRequest`'s `plugin.ref`, and `adapter/test/adapter.test.ts` covers a pinned commit that isn't the branch's latest, and an unknown ref failing the step with git's error;
   - `shipConfig` returns `plugin: { url, ref }` from `FACTORY8_PLUGIN` and `FACTORY8_PLUGIN_REF`, failing with `bad_bands` when either is unset, and the ship run passes it to every step;
   - `worker/test/ship.test.ts`'s plugin assertions check one `ref` for every step instead of one `at` (the only edit to that file);
