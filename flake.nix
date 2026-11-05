@@ -86,6 +86,13 @@
         # The shared worker's image (M1 design D4): the built-in flows only (M7 D1).
         worker-image = self.lib.workerImage { inherit pkgs; name = "factory8-worker"; };
 
+        # This repo's project worker image (M7 D6): the built-ins and .factory8/workflows/.
+        project-worker-image = self.lib.workerImage {
+          inherit pkgs;
+          name = "factory8-worker-factory8-factory8";
+          workflows = ./.factory8/workflows;
+        };
+
         # f8 on the laptop (M1 design D5): nix run <this repo>#f8 -- run 12
         f8 = pkgs.runCommand "f8" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''
           makeWrapper ${pkgs.nodejs_24}/bin/node $out/bin/f8 --add-flags ${app}/cli/src/main.ts

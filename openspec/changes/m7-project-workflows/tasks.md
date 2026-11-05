@@ -41,7 +41,7 @@
   - `lib.workerImage` with a directory builds an image whose entry re-exports the built-ins by name and the directory's `index.ts`, whose `FACTORY8_WORKFLOW_BUNDLE` is the bundle, and whose `FACTORY8_PLUGIN_REF` is Factory8's commit; `pkgs` only picks the system;
   - `packages.worker-image` is `lib.workerImage` without a directory, and `nix build .#worker-image` passes;
   - by hand: a directory whose flow imports a missing module fails `nix build`, naming it; one that exports `shipWorkflow` leaves the built-in in place; a build from a tree with uncommitted changes fails.
-- [ ] 7.6 The first project flow, `gatedWorkflow` (design D6; after 7.2, 7.5). Done when:
+- [x] 7.6 The first project flow, `gatedWorkflow` (design D6; after 7.2, 7.5). Done when:
   - `.factory8/workflows/index.ts` exists, with its own plan and build prompts and no import outside its directory but `@factory8/worker/flow` and `@temporalio/workflow`;
   - `.factory8/workflows/test/gated.test.ts` covers `go` → build and `{ summary }`, anything else → `rejected` with the answer, and no sandbox during the wait;
   - `npm test` runs the flow's test, and `npm run typecheck` covers `.factory8/`;

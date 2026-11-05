@@ -1,13 +1,14 @@
 {
   "name": "factory8",
   "private": true,
+  "type": "module",
   "workspaces": [
     "adapter",
     "worker",
     "cli"
   ],
   "scripts": {
-    "test": "npm test --workspaces",
+    "test": "npm test --workspaces && node --test '.factory8/workflows/test/*.test.ts'",
     "typecheck": "tsc"
   },
   "devDependencies": {
