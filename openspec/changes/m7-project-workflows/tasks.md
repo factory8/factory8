@@ -46,7 +46,7 @@
   - `.factory8/workflows/test/gated.test.ts` covers `go` → build and `{ summary }`, anything else → `rejected` with the answer, and no sandbox during the wait;
   - `npm test` runs the flow's test, and `npm run typecheck` covers `.factory8/`;
   - `nix build .#project-worker-image` passes, and the image, run locally against `temporal server start-dev` with factory8/factory8 in `FACTORY8_IMAGES`, polls `factory8/factory8/factory8` and registers `sdlcWorkflow`, `shipWorkflow` and `gatedWorkflow`.
-- [ ] 7.7 CLI: any flow on the repo's queue, the poller check, ending a run that can't start, one result rule (design D5; `f8-cli` delta; after 7.3). Done when:
+- [x] 7.7 CLI: any flow on the repo's queue, the poller check, ending a run that can't start, one result rule (design D5; `f8-cli` delta; after 7.3). Done when:
   - `cli/test/run.test.ts` covers `run 12` → flow `sdlc`, `run --flow gated 12` → flow `gated`, `run --flow ship 12` as before, `run --flow 9-x 12` → usage, and `repoUrl('git@github.com:Factory8/Factory8.git')` → `https://github.com/factory8/factory8`;
   - the result rule is a pure function in `cli/src/run.ts`, with a test for `url`, `summary` and neither;
   - against a dev server with no worker on the queue, `f8 run 12` and `f8 run --flow gated 12` print `no worker serves factory8/factory8/factory8`, exit 1, and leave no workflow;
