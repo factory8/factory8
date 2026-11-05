@@ -19,6 +19,8 @@ cp: "CONTROL PLANE — trusted · one installation per client · on-prem k3s (Ni
   }
   ctrl: "Kubernetes API\nKata pod + PVC per run"
   builder: "Project agent builder\nNix dev shell · AGENTS.md · project.yaml\n→ image + sandbox template · checked"
+  viewer: "Session viewer (third-party)\nread-only · token-gated"
+  inbox: "Phone inbox → Collie\nquestion · link to session · token-gated"
   builder -> wf: "project template"
   intake -> tmp: starts runs
   wf -> tmp: runs on
@@ -48,5 +50,9 @@ ep.sb -> blocked: "" {style: {stroke: "#d32f2f"; stroke-width: 3; stroke-dash: 4
 forge <- cp.gw.g: "push run branch"
 forge <- cp.builder: "read project files\n(default branch)"
 forge -> ep.ci: "agent branches"
+cp.viewer <- ep.pvc: "sessions\n(read-only, in place)"
+cp.inbox -> cp.tmp: "waiting runs · answer signal"
+humans -> cp.viewer: "read sessions\n(browser, phone)"
+humans -> cp.inbox: "answer from the phone\n(Collie)"
 cp.gw.l -> out
 ep.proxy -> out
