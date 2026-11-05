@@ -36,7 +36,7 @@
   - `plugin/.claude-plugin/plugin.json` has no `version`.
 
   `npm test` and `npm run typecheck` pass.
-- [ ] 7.5 `lib.workerImage` (design D1, D4, D9; `project-worker` spec, "builds its worker image", "bundled when it is built", "pins one Factory8 commit"; after 7.1–7.4). Done when:
+- [x] 7.5 `lib.workerImage` (design D1, D4, D9; `project-worker` spec, "builds its worker image", "bundled when it is built", "pins one Factory8 commit"; after 7.1–7.4). Done when:
   - `worker/src/bundle.ts` bundles an entry to a file, as 7.1 settled;
   - `lib.workerImage` with a directory builds an image whose entry re-exports the built-ins by name and the directory's `index.ts`, whose `FACTORY8_WORKFLOW_BUNDLE` is the bundle, and whose `FACTORY8_PLUGIN_REF` is Factory8's commit; `pkgs` only picks the system;
   - `packages.worker-image` is `lib.workerImage` without a directory, and `nix build .#worker-image` passes;

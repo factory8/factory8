@@ -83,11 +83,8 @@
           shell = self.devShells.${pkgs.stdenv.hostPlatform.system}.default;
         };
 
-        # The worker's image (M1 design D4).
-        worker-image = pkgs.dockerTools.streamLayeredImage {
-          name = "factory8-worker";
-          config.Entrypoint = [ "${pkgs.nodejs_24}/bin/node" "${app}/worker/src/main.ts" ];
-        };
+        # The shared worker's image (M1 design D4): the built-in flows only (M7 D1).
+        worker-image = self.lib.workerImage { inherit pkgs; name = "factory8-worker"; };
 
         # f8 on the laptop (M1 design D5): nix run <this repo>#f8 -- run 12
         f8 = pkgs.runCommand "f8" { nativeBuildInputs = [ pkgs.makeWrapper ]; } ''

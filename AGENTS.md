@@ -16,7 +16,7 @@ Factory8 is a self-hosted AI-native software factory. Temporal workflows, writte
 - `npm test`: tests (`node --test`), inside the dev shell: the worker's tests start its `temporal`.
 - `npm run typecheck`: `tsc`, no emit.
 - `nix build .#sandbox-image`: the sandbox image (M1 design D3). The result is a script that streams the image; pipe it to `docker load` or `k3s ctr images import -`.
-- `nix build .#worker-image -o result-worker`: the worker's image (M1 design D4), streamed the same way. After importing either image, put its new tag in `deploy/worker.yaml`.
+- `nix build .#worker-image -o result-worker`: the shared worker's image (M1 design D4), streamed the same way: the flake's `lib.workerImage` with the built-in flows only, bundled at build and pinned to the commit it's built from (a dirty tree fails). After importing either image, put its new tag in `deploy/worker.yaml`.
 - `nix build .#project-worker-image` (M7): this repo's own project worker image, made by the flake's `lib.workerImage` from `.factory8/workflows/` and the built-in flows, bundled at build and pinned to the commit it's built from (a dirty tree fails). Its tag goes in `deploy/projects/factory8.yaml`.
 
 ## Layout
