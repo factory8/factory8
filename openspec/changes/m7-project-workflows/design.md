@@ -115,7 +115,12 @@ The state's base shape is `{ stage, question?, steps: { stage, model?, result }[
 
 **Proposed:** `worker/src/bundle.ts <entry> <out>` calls `bundleWorkflowCode` with a `webpackConfigHook` that adds `app`'s `node_modules` to `resolve.modules`, and writes the code to `<out>`. `lib.workerImage` runs it in the image's build, with webpack and swc from `app` (dependencies of `@temporalio/worker`). So the entry and the project's directory stay where Nix put them, and webpack finds `@temporalio/workflow` and `@factory8/worker` in `app`. `@factory8/worker` is a workspace link, which webpack follows to `app/worker/src`, outside `node_modules`, so the bundler compiles it. A project's workflows may import only those two packages: the image doesn't install the project's npm dependencies.
 
-To be confirmed by the spike (7.1): bundling runs in the Nix build sandbox; `resolve.modules` reaches both packages from a directory outside `app`; and the workspace link exists in `app`'s `node_modules`. If `resolve.modules` doesn't hold, the fallback is to copy the project's directory and the entry into one directory, next to a `node_modules` link to `app`'s. The spike records which one holds.
+**Spike (7.1, 2026-11-05): `resolve.modules` holds; no fallback needed.** The pilot's repo, `librepod/marketplace`, on a local branch, got a flake with Factory8 as a `git+file` input pinned with `?ref=m7-project-workflows`, and `.factory8/workflows/index.ts`, which imports `@temporalio/workflow` and `@factory8/worker/workflows` (`/flow` comes with 7.2; both are subpaths of the same `exports`). The prototype is `worker/src/bundle.ts` and `lib.workerImage`, as above.
+- Bundling runs in the Nix build sandbox, with webpack and `@swc/core`'s native binding from `app`, in about 1.6 s.
+- `resolve.modules` reaches both packages from the store paths of the entry and the project's directory. `app`'s `node_modules` has the `@factory8/worker` link (`../../worker`, as in the dev tree). Webpack follows it to `app/worker/src`, outside `node_modules`, so swc compiles it.
+- The bundle's inline source maps name the entry and the project's directory, so both are in the image's closure. That's harmless and costs a few KB.
+- The image's `FACTORY8_PLUGIN_REF` is the commit at the tip of the input's ref.
+- A worker started in the image with `workflowBundle: { codePath: FACTORY8_WORKFLOW_BUNDLE }`, on queue `factory8/librepod/marketplace`, loads the bundle. The pilot's own flow completes. `sdlcWorkflow` gets past its first workflow task and schedules `createSandbox`. `gatdWorkflow` fails its first task with D5's "no such function is exported by the workflow bundle".
 - **Rejected:**
   - copying the project's directory into `app` (the first draft): `app` is a store path, so it means a second `app` per project;
   - publishing `@factory8/worker` to a registry: the repo is private and nothing else needs it.
@@ -147,7 +152,7 @@ It returns `{ summary }` from the build. It uses every building block of D3. Its
 
 `packages.project-worker-image` builds it with `lib.workerImage`, and that image becomes factory8/factory8's worker (D7). Its `sdlc` and `ship` runs exercise the built-ins through `lib.workerImage`.
 
-This repo uses Factory8 as `self`, not as a flake input. So the spike (7.1) builds `lib.workerImage` from a scratch flake outside the repo, with Factory8 as a `git+file` input, and the path a real project takes is built at least once.
+This repo uses Factory8 as `self`, not as a flake input. So the spike (7.1) builds `lib.workerImage` from the pilot's repo, on a local branch with Factory8 as a `git+file` input, and the path a real project takes is built at least once.
 
 Its test, `.factory8/workflows/test/gated.test.ts`, runs it in Temporal's local test environment with mocked activities, as `worker/test/ship.test.ts` does: `go` builds, `no` fails with `rejected`, and no sandbox exists during the wait. `npm test` and `npm run typecheck` reach it through the root `package.json` and `tsconfig.json`; neither looks into a dot directory by default.
 - **Rejected:**

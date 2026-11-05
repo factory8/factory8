@@ -14,7 +14,7 @@
   - `docs/plans/poc.md` has the M7 row and, under "Not in the POC", the project worker's shared ServiceAccount (a Role and pod labels per project);
   - `CLAUDE.md` lists `.factory8/workflows/`, `lib.workerImage` and `f8 run --flow <name>`, says the queue is per repo, and its `plugin/` line says a skill change reaches runs with the next worker image;
   - the memory files note M7, and the prompts-as-skills one says skills now ship with the worker image.
-- [ ] 7.1 Spike (by hand; design D4, D6; after none). From a scratch flake outside this repo, with Factory8 as a `git+file` input (a `path:` input has no commit for D9's pin) and a directory whose `index.ts` imports `@factory8/worker/flow`, build an image the way D1 describes, entry file and bundle included. Done when D4 records:
+- [x] 7.1 Spike (by hand; design D4, D6; after none). From the pilot repo (`librepod/marketplace`, on a local branch), with Factory8 as a `git+file` input (a `path:` input has no commit for D9's pin) and a directory whose `index.ts` imports `@factory8/worker/flow`, build an image the way D1 describes, entry file and bundle included. Done when D4 records:
   - whether bundling runs in the Nix build sandbox, with webpack and swc from `app`;
   - whether `resolve.modules` reaches `@temporalio/workflow` and `@factory8/worker` from a directory outside `app`, and whether `app`'s `node_modules` has the `@factory8/worker` link;
   - if not, that the fallback (a copy next to a `node_modules` link to `app`'s) works;
