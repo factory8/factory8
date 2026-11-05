@@ -7,7 +7,7 @@
 
 ## 7. M7: a queue per project, and workflows a project owns
 
-- [ ] 7.0 Docs for the move (design D8; after none). Done when:
+- [x] 7.0 Docs for the move (design D8; after none). Done when:
   - the PRD has ORC-14 and a §0 row (ORC-2, ORC-7, ORC-14, PLT-8, SBX-17, §8), both approved by the user. The row also says the stage skills are pinned to the worker image's commit, not to the run's start as v0.5's M6 row says;
   - §8's Phase 0 row has M7 after M6;
   - `docs/site/prd.html` and `architecture.html` match the PRD;

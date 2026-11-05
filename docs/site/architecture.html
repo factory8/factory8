@@ -30,7 +30,7 @@ code{background:#334155;padding:1px 6px;border-radius:4px}.cap{color:var(--mut);
 <h2>Who owns what</h2>
 <table><tr><th>Component</th><th>Owns</th><th>Never owns</th></tr>
 <tr><td>Temporal (+ Postgres)</td><td>Stage, route, retries, timers, every human wait; passes references (repo@sha, object keys)</td><td>Artifact content; the only copy of a gate decision</td></tr>
-<tr><td>SDLC workflows (TypeScript, Node LTS)</td><td>The process as code: stages, loops, child workflows; per-step config (agent profile, sandbox size, egress)</td><td>Hardcoded per-step settings; unversioned changes (replay tests gate every change)</td></tr>
+<tr><td>SDLC workflows (TypeScript, Node LTS)</td><td>The process as code: stages, loops, child workflows; per-step config (agent profile, sandbox size, egress). Each project's runs on its own task queue; a project may build its own worker image with its own workflows on top of the built-in flows, pinned to one Factory8 commit with the plugin's skills (ORC-14)</td><td>Hardcoded per-step settings; unversioned changes (replay tests gate every change); activities of a project's own</td></tr>
 <tr><td>Intake (adapters + IntakeWorkflow)</td><td>Polling sources, <code>IntentEnvelope</code>, trust tier, triage (screen, classify, reproduce, ask), draft intent</td><td>Starting a run without a human <code>/accept</code></td></tr>
 <tr><td>Git forge</td><td>Intent (issue), <code>spec.md</code>/<code>plan.md</code> on the run branch, code, PR reviews, gate decisions, branch protection</td><td>Evidence blobs</td></tr>
 <tr><td>Object storage (MinIO)</td><td>Evidence by content hash: tool output, transcripts, screenshots; linked from the PR</td><td>Anything committed to the repo</td></tr>
