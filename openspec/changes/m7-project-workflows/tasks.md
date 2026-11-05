@@ -25,9 +25,9 @@
   - `worker/package.json` exports `./flow` and `./workflows`.
 
   `npm test` and `npm run typecheck` pass.
-- [ ] 7.3 A worker per repo's queue (design D2; `project-worker` spec, "Every project has its own task queue", "A worker serves the queues of its repos", "An error in workflow code fails the run"; after none). Done when:
+- [x] 7.3 A worker per repo's queue (design D2; `project-worker` spec, "Every project has its own task queue", "A worker serves the queues of its repos", "An error in workflow code fails the run"; after none). Done when:
   - `worker/src/queue.ts` has `taskQueue(repo)`, with a test: `https://github.com/librepod/marketplace` → `factory8/librepod/marketplace`, and a URL that isn't a lowercase GitHub repo URL throws;
-  - `worker/src/main.ts` loads the bundle at `FACTORY8_WORKFLOW_BUNDLE`, or bundles `./workflows.ts` once without it, runs one worker per key of `FACTORY8_IMAGES` with `workflowFailureErrorTypes: ['Error']`, and exits with an error when `FACTORY8_IMAGES` is unset, empty, or has a key `taskQueue` rejects;
+  - `worker/src/main.ts` loads the bundle at `FACTORY8_WORKFLOW_BUNDLE`, or bundles `./workflows.ts` once without it, runs one worker per key of `FACTORY8_IMAGES` with `workflowFailureErrorTypes: { '*': ['Error'] }`, and exits with an error when `FACTORY8_IMAGES` is unset, empty, or has a key `taskQueue` rejects;
   - by hand against `temporal server start-dev`, with two repos in `FACTORY8_IMAGES`: `temporal task-queue describe` shows a poller on both queues and none on `factory8`.
 - [ ] 7.4 The plugin pinned to a commit (design D9; `agent-adapter` and `ship-workflow` deltas; after 7.2). Done when:
   - the adapter checks out the `StepRequest`'s `plugin.ref`, and `adapter/test/adapter.test.ts` covers a pinned commit that isn't the branch's latest, and an unknown ref failing the step with git's error;

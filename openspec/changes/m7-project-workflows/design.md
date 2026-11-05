@@ -78,11 +78,11 @@ The image's tag is its Nix hash, imported by hand, as for the shared worker (M1 
 
 **Proposed:** `worker/src/main.ts`:
 - loads the bundle at `FACTORY8_WORKFLOW_BUNDLE`. Without it (the dev shell, a local check), it bundles `./workflows.ts` once at start with `bundleWorkflowCode`. `Worker.create` with a `workflowsPath` would bundle again for every queue;
-- creates one `Worker` for each key of `FACTORY8_IMAGES` on one `NativeConnection`. Each gets the bundle, the activities, the queue `taskQueue(repo)` and `workflowFailureErrorTypes: ['Error']`;
+- creates one `Worker` for each key of `FACTORY8_IMAGES` on one `NativeConnection`. Each gets the bundle, the activities, the queue `taskQueue(repo)` and `workflowFailureErrorTypes: { '*': ['Error'] }`;
 - runs them together. If one stops, the process exits and Kubernetes restarts it;
 - fails at start when `FACTORY8_IMAGES` is unset or empty, as it does for the models (M5 D7), or when a key isn't a lowercase GitHub repo URL.
 
-`workflowFailureErrorTypes: ['Error']` makes any error a workflow's code throws fail the run with its message, instead of failing the task forever (Context). A redeploy already fails the runs in flight in the POC, so waiting for a fixed deploy to heal the task gains nothing. It covers errors in a workflow's code, not an unknown workflow type, which fails before the workflow runs (D5).
+`workflowFailureErrorTypes: { '*': ['Error'] }` makes any error a workflow's code throws fail the run with its message, instead of failing the task forever (Context). A redeploy already fails the runs in flight in the POC, so waiting for a fixed deploy to heal the task gains nothing. It covers errors in a workflow's code, not an unknown workflow type, which fails before the workflow runs (D5).
 
 `taskQueue(repo)` is a pure function in `worker/src/queue.ts` that turns `https://github.com/<owner>/<repo>` into `factory8/<owner>/<repo>`, and throws on anything else, uppercase included. `f8` imports it too, so the CLI and the worker can't disagree. `f8`'s `repoUrl` lowercases the owner and repo: GitHub ignores case, but a queue name and the `FACTORY8_IMAGES` lookup don't.
 
