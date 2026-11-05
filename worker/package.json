@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./flow": "./src/flow.ts",
     "./workflows": "./src/workflows.ts"
   },
   "scripts": {

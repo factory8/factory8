@@ -19,7 +19,7 @@
   - whether `resolve.modules` reaches `@temporalio/workflow` and `@factory8/worker` from a directory outside `app`, and whether `app`'s `node_modules` has the `@factory8/worker` link;
   - if not, that the fallback (a copy next to a `node_modules` link to `app`'s) works;
   - that a worker started from the image loads the bundle.
-- [ ] 7.2 `worker/src/flow.ts`, with ship.ts on it (design D3; `project-worker` spec, "Project workflows have Factory8's run building blocks", "A stage names one step"; after none). Done when:
+- [x] 7.2 `worker/src/flow.ts`, with ship.ts on it (design D3; `project-worker` spec, "Project workflows have Factory8's run building blocks", "A stage names one step"; after none). Done when:
   - ship.ts uses `run`, `ask` and `step` from `flow.ts`, with `parseResult` as `step`'s `parse`, and `worker/test/ship.test.ts` passes without edits;
   - `worker/test/flow.test.ts` runs a small workflow in the local test environment with mocked activities and covers: a step's create, start, poll and delete, and its `{ stage, model, result }` record; a question that deletes the pod, shows in `state` and resumes after `answer`; `ask` between two steps with no sandbox in between; a reused stage and a stage that isn't a DNS label failing the run with `bad_stage` before any sandbox;
   - `worker/package.json` exports `./flow` and `./workflows`.

@@ -1,22 +1,15 @@
 // The ship run (M6 design D1, D2, D7–D12): one issue through design, tests, implementation and review, each step in its own sandbox.
-import { ApplicationFailure, condition, defineQuery, defineSignal, proxyActivities, setHandler, workflowInfo } from '@temporalio/workflow';
+import { ApplicationFailure, proxyActivities, workflowInfo } from '@temporalio/workflow';
 import type * as activities from './activities.ts';
-import { blocking, command, parseResult, passes, report, type Finding, type Results, type Review, type Skill, type StepRecord } from './results.ts';
-import type { RunInput } from './workflows.ts';
+import { run, type RunInput, type RunState as Base } from './flow.ts';
+import { blocking, command, parseResult, passes, report, type Finding, type Review, type Skill } from './results.ts';
 
-// One attempt each, as in sdlcWorkflow: retries come in M4.
-const { shipConfig, createSandbox, startStep, answerStep, deleteSandbox } = proxyActivities<typeof activities>({
-  startToCloseTimeout: '5m', retry: { maximumAttempts: 1 },
-});
-const { pollStep } = proxyActivities<typeof activities>({ startToCloseTimeout: '2h', retry: { maximumAttempts: 1 } });
+const { shipConfig } = proxyActivities<typeof activities>({ startToCloseTimeout: '5m', retry: { maximumAttempts: 1 } });
 
 // No speculative config (M5 D4): these become FACTORY8_BANDS keys when someone needs to change one.
 const CONTRACT_MAX = 2, REWORK_MAX = 2, DETERMINATE_EXTRA = 1, BOUNCES_MAX = 2;
 
-const answer = defineSignal<[string]>('answer');
-const state = defineQuery<RunState>('state');
-
-export interface RunState { stage: string; risk: 'low' | 'high'; pr?: number; question?: string; steps: StepRecord[] }
+export interface RunState extends Base { risk: 'low' | 'high'; pr?: number }
 type Outcome = 'ready' | 'escalated' | 'too_big' | 'parked';
 class Ended {
   outcome: Outcome; cause: string; note: string;
@@ -26,55 +19,23 @@ type Route = { to: 'design' | 'acceptance'; ctx?: unknown; count: boolean };
 type Tests = { sha: string; files: string[] };
 type Attempt = { attempt: number; sha: string; reviews: { stage: string; verdict: string; findings: Finding[] }[] };
 
-export async function shipWorkflow({ runId, repo, issue }: RunInput) {
-  const st: RunState = { stage: '', risk: 'low', steps: [] };
+export async function shipWorkflow(input: RunInput) {
+  const { runId, issue } = input;
+  const { state: st, ask, step: runStep } = run<Omit<RunState, keyof Base>>(input, { risk: 'low' });
   const causes: { cause: string; note: string }[] = [];
-  const answers: string[] = [];
   const counts: Record<string, number> = {};
-  setHandler(state, () => st);
-  setHandler(answer, a => { answers.push(a); });
   const { bands, plugin } = await shipConfig(); // before any sandbox, so bad settings fail the run at once
   const at = workflowInfo().startTime.toISOString();
-  const branch = `factory8/${runId}`;
 
   const count = (kind: string) => counts[kind] = (counts[kind] ?? 0) + 1;
   const cmd = (skill: Skill, args: Record<string, string | number | undefined>, ctx?: unknown) =>
     command(skill, issue, { run: runId, ...args }, ctx);
 
-  // The run's wait for a human: no sandbox exists while it lasts (D10).
-  async function ask(question: string) {
-    st.question = question;
-    await condition(() => answers.length > 0);
-    st.question = undefined;
-    return answers.shift()!;
-  }
-
-  // One step in its own sandbox: create, start, poll, delete in `finally`; a question waits without a pod (D1, D10).
-  async function step<K extends Skill>(kind: K, stage: string, prompt: string, profile: activities.Profile): Promise<Results[K]> {
-    st.stage = stage;
-    const stepId = `${runId}.${stage}.1`;
-    try {
-      let ip = await createSandbox(runId, stage, repo), seen = 0;
-      await startStep(ip, { stepId, runId, prompt, repo: { url: repo, branch }, plugin: { url: plugin, at }, profile });
-      for (;;) {
-        const exit = await pollStep(ip, stepId, seen);
-        seen = exit.seq; // the step's log keeps this exit, so the poll after an answer starts past it
-        if (exit.status === 'done') {
-          let result: Results[K];
-          try { result = parseResult(kind, exit.summary); } catch (e) { throw new Ended('parked', 'H', `${stage}: ${(e as Error).message}`); }
-          st.steps.push({ stage, model: profile.model, result });
-          return result;
-        }
-        if (exit.status === 'failed') throw ApplicationFailure.nonRetryable(`${stage}: ${exit.reason}`, 'failed');
-        await deleteSandbox(runId, stage); // the PVC stays, and so does the session
-        const a = await ask(exit.question);
-        ip = await createSandbox(runId, stage, repo);
-        await answerStep(ip, stepId, a);
-      }
-    } finally {
-      await deleteSandbox(runId, stage);
-    }
-  }
+  // A stage's step (flow.ts) with its profile and the pinned plugin; a result the skill's shape rejects parks the run (H).
+  const step = <K extends Skill>(kind: K, stage: string, prompt: string, profile: activities.Profile) =>
+    runStep(stage, prompt, { profile, plugin: { url: plugin, at }, parse: s => {
+      try { return parseResult(kind, s); } catch (e) { throw new Ended('parked', 'H', `${stage}: ${(e as Error).message}`); }
+    } });
 
   // Where a stop cause or a diagnosis sends the run (D7). D and F are the implement loop's own.
   async function route(cause: string, note: string): Promise<Route> {
