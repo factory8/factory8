@@ -2,6 +2,9 @@
   "name": "@factory8/worker",
   "private": true,
   "type": "module",
+  "exports": {
+    "./workflows": "./src/workflows.ts"
+  },
   "scripts": {
     "test": "node --test"
   },
