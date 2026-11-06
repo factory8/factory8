@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseArgs, repoUrl, resultLine } from '../src/run.ts';
+import { parseArgs, repoUrl, resultLine, startOf } from '../src/run.ts';
 
 test('the repo URL is https://github.com/owner/repo whatever the remote form, lowercased', () => {
   for (const remote of [
@@ -23,6 +23,15 @@ test('the arguments: run, run --flow <name>, a malformed flow name, and answer',
   for (const bad of [[], ['run'], ['run', 'x'], ['run', '0'], ['run', '--flow', '9-x', '12'], ['run', '--flow', 'Gated', '12'],
     ['run', '--flow', 'fix-bug', '12'], ['run', '--flow', 'ship'], ['run', '--flow'], ['answer', 'k3x9qa'], ['ship', '12']])
     assert.equal(parseArgs(bad), undefined, bad.join(' '));
+});
+
+test('a run started once any workflow task completed, even after a failed one; else it can\'t start', () => {
+  const completed = { workflowTaskCompletedEventAttributes: {} };
+  const failed = { workflowTaskFailedEventAttributes: { failure: { message: 'no such function' } } };
+  assert.equal(startOf([{}, completed]), true);
+  assert.equal(startOf([{}, failed]), 'no such function');
+  assert.equal(startOf([{}, failed, {}, completed]), true, 'the retry completed on another worker');
+  assert.equal(startOf([{}]), undefined, 'the first task is pending');
 });
 
 test('a result prints as its url, else its summary, else JSON', () => {

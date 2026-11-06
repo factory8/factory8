@@ -22,6 +22,16 @@ export function parseArgs(argv: string[]): Command | undefined {
   return { cmd, flow, issue };
 }
 
+// Whether a run started, from its history (M7 D5): true once any workflow task completed, else the first failed task's
+// message, such as a flow the worker doesn't have, else undefined while its first task is pending. A completion wins
+// wherever it is: in a rollout, the old worker can fail the first task and the new one complete its retry.
+type HistoryEvent = { workflowTaskCompletedEventAttributes?: unknown; workflowTaskFailedEventAttributes?: { failure?: { message?: string | null } | null } | null };
+export function startOf(events: HistoryEvent[]): true | string | undefined {
+  if (events.some(e => e.workflowTaskCompletedEventAttributes)) return true;
+  const failed = events.find(e => e.workflowTaskFailedEventAttributes)?.workflowTaskFailedEventAttributes;
+  return failed ? failed.failure?.message ?? 'its first workflow task failed' : undefined;
+}
+
 // The line a run's result prints as, for every flow: its `url`, else its `summary`, else the result as JSON.
 export function resultLine(result: unknown) {
   const { url, summary } = (result ?? {}) as { url?: unknown; summary?: unknown };

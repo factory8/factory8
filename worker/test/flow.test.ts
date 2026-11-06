@@ -85,6 +85,14 @@ test('a question deletes the pod and shows in state; the answer recreates the sa
   assert.deepEqual(w.calls.filter(c => c[0] === 'poll').at(-1), ['poll', 'build', 1], 'the poll after the answer starts past the question');
 });
 
+test('a second question while one waits fails the run with bad_ask', async () => {
+  const q = { status: 'needs_input', question: 'Which DB?' };
+  const w = await start('parallelFlow', { stages: ['review-a', 'review-b'] }, { 'review-a': [q], 'review-b': [q] });
+  const result = await w.worker.runUntil(w.handle.result().catch((e: Error) => e));
+  assert.ok(result instanceof WorkflowFailedError, String(result));
+  assert.equal((result.cause as Error & { type?: string }).type, 'bad_ask');
+});
+
 test('a reused stage, or one that is not a DNS label, fails the run with bad_stage before its sandbox', async () => {
   for (const [stages, created] of [[['build', 'build'], ['build']], [['Build Step'], []], [['-x'], []], [['a'.repeat(64)], []]]) {
     const w = await start('stagesFlow', { stages });

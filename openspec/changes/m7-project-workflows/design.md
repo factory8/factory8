@@ -132,7 +132,7 @@ The state's base shape is `{ stage, question?, steps: { stage, model?, result }[
 - Every run starts on `taskQueue(repo)`.
 - Before starting, `f8` calls `DescribeTaskQueue` for the workflow task queue. With no poller, it prints `no worker serves <queue>` and exits 1. Temporal lists the workers that polled in the last few minutes, so a worker that just stopped still counts: the check catches a queue nobody serves, not a crash.
 - `f8` watches every run with the ship run's watcher. A run with no `state` query, such as M5's, prints nothing until it ends. The result is printed by the rule in the `f8-cli` delta: `url`, else `summary`, else JSON. The ship run returns `url` and the SDLC run `summary`, so both print what they print today.
-- **A run that can't start ends.** While it watches, when the run's history has a `WorkflowTaskFailed` before any `WorkflowTaskCompleted`, `f8` prints the failure's message, terminates the run and exits 1. Nothing has run yet, so terminating it loses nothing.
+- **A run that can't start ends.** While it watches, when the run's history has a `WorkflowTaskFailed` and no `WorkflowTaskCompleted`, `f8` prints the failure's message, terminates the run and exits 1. Nothing has run yet, so terminating it loses nothing. A completion anywhere wins: in a rollout, the old worker can fail the first task and the new one complete its retry, and that run has started.
 - `f8 answer` doesn't change: it signals the workflow ID, whatever the queue.
 
 The poller check matters because Temporal accepts a start on a queue nobody polls: the run would sit with no worker and no error. A flow name that the queue's worker doesn't have fails the run's first workflow task with `Failed to initialize workflow of type 'gatdWorkflow': no such function is exported by the workflow bundle`. That fails before any workflow code runs, so D2's worker option doesn't turn it into a run failure, and Temporal retries the task forever. `f8` can't see the worker's types without a catalogue, but it sees that failure.
@@ -146,7 +146,7 @@ The poller check matters because Temporal accepts a start on a queue nobody poll
 **Proposed:** `.factory8/workflows/index.ts`, where any project keeps its flows (D1), is a flow with a human gate between plan and build:
 1. a `plan` step;
 2. `ask` with the plan's summary and "Reply `go` to build, anything else to stop.";
-3. a `build` step, when the answer is `go`. Otherwise the run fails with type `rejected` and the answer as its message.
+3. a `build` step, when the answer is `go`, in any case and with spaces trimmed. Otherwise the run fails with type `rejected` and the answer as its message.
 
 It returns `{ summary }` from the build. It uses every building block of D3. Its plan and build prompts are its own, written in the file: a project's flows import only `@factory8/worker/flow` and `@temporalio/workflow` (D4), and so does this one.
 

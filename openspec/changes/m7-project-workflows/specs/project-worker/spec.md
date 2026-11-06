@@ -77,7 +77,7 @@ A project worker SHALL register Factory8's activities and no activity of the pro
 - **THEN** the activities it registers are exactly the shared worker's
 
 ### Requirement: Project workflows have Factory8's run building blocks
-Factory8 SHALL give project workflows the building blocks the ship run uses: a step in its own sandbox, a wait for a human answer that holds no pod (ORC-5, SBX-11), and the run's `state` query. A step that asks a question SHALL wait for the `answer` signal and resume on its own PVC, as in the ship run.
+Factory8 SHALL give project workflows the building blocks the ship run uses: a step in its own sandbox, a wait for a human answer that holds no pod (ORC-5, SBX-11), and the run's `state` query. A step that asks a question SHALL wait for the `answer` signal and resume on its own PVC, as in the ship run. Only one question SHALL wait at a time: a second one fails the run with type `bad_ask`.
 
 #### Scenario: Question in a project run
 - **WHEN** a step of a project run asks a question
@@ -86,6 +86,10 @@ Factory8 SHALL give project workflows the building blocks the ship run uses: a s
 #### Scenario: Human gate in a project run
 - **WHEN** a project workflow waits for a human between two steps
 - **THEN** no sandbox pod exists while it waits, and the run continues with the answer after the `answer` signal
+
+#### Scenario: Two questions at once
+- **WHEN** a project workflow runs two steps at once and both ask a question
+- **THEN** the run fails with type `bad_ask`
 
 ### Requirement: A stage names one step
 A step's stage SHALL be a DNS label, at most 63 lowercase letters, digits and `-`, not used by an earlier step of the run. A step with any other stage SHALL fail the run with type `bad_stage` before any sandbox is created.

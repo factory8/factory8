@@ -38,8 +38,8 @@ async function gated(answer: string) {
   });
 }
 
-test('go builds and returns the build\'s summary; no sandbox while it waits', async () => {
-  const r = await gated('go');
+test('go, in any case and with spaces, builds and returns the build\'s summary; no sandbox while it waits', async () => {
+  const r = await gated(' Go ');
   assert.equal(r.question, 'plan done\n\nReply `go` to build, anything else to stop.');
   assert.deepEqual(r.waiting, ['create plan', 'start plan author', 'delete plan']);
   assert.deepEqual(r.result, { summary: 'build done' });

@@ -26,6 +26,6 @@ export async function gatedWorkflow(input: RunInput) {
   const { ask, step } = run(input);
   const planned = await step('plan', plan(runId, issue), { role: 'author' });
   const answer = await ask(`${planned}\n\nReply \`go\` to build, anything else to stop.`);
-  if (answer !== 'go') throw ApplicationFailure.nonRetryable(answer, 'rejected');
+  if (answer.trim().toLowerCase() !== 'go') throw ApplicationFailure.nonRetryable(answer, 'rejected');
   return { summary: await step('build', build(runId, issue), { role: 'author' }) };
 }

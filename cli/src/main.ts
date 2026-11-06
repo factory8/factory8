@@ -5,7 +5,7 @@ import { randomInt } from 'node:crypto';
 import { Client, Connection, type WorkflowHandle, WorkflowExecutionAlreadyStartedError, WorkflowFailedError } from '@temporalio/client';
 import type { RunState } from '../../worker/src/flow.ts';
 import { taskQueue } from '../../worker/src/queue.ts';
-import { parseArgs, repoUrl, resultLine } from './run.ts';
+import { parseArgs, repoUrl, resultLine, startOf } from './run.ts';
 
 const args = parseArgs(process.argv.slice(2));
 if (!args) {
@@ -57,15 +57,8 @@ for (;;) {
 }
 console.error(`run ${handle.workflowId} started`); // Ctrl-C stops only the wait; the run carries on
 
-// A first workflow task that fails before any completes, such as a flow the worker doesn't have, fails forever:
-// nothing has run yet, so f8 ends the run. Returns the failure's message, or undefined once a task has completed.
+// A run whose workflow task failed and none completed fails forever: nothing has run yet, so f8 ends it (startOf).
 let started = false;
-async function cantStart() {
-  for (const e of (await handle.fetchHistory()).events ?? []) {
-    if (e.workflowTaskCompletedEventAttributes) { started = true; return; }
-    if (e.workflowTaskFailedEventAttributes) return e.workflowTaskFailedEventAttributes.failure?.message ?? 'its first workflow task failed';
-  }
-}
 
 // Every run is watched through its state: each stage as it starts, each question with the command that answers it.
 // A run without a `state` query, such as an SDLC run, prints nothing until it ends.
@@ -78,13 +71,14 @@ async function watch() {
     const r = await Promise.race([done, new Promise<undefined>(res => { timer = setTimeout(() => res(undefined), started ? 10_000 : 1_000); })]);
     clearTimeout(timer); // or the CLI waits out the timer after the run ends
     if (!started) {
-      const failure = await cantStart();
-      if (failure) {
-        await handle.terminate(`f8: the run can't start: ${failure}`);
-        console.error(`the run can't start: ${failure}`);
+      const start = startOf((await handle.fetchHistory()).events ?? []);
+      if (typeof start === 'string') {
+        await handle.terminate(`f8: the run can't start: ${start}`);
+        console.error(`the run can't start: ${start}`);
         await connection.close();
         process.exit(1);
       }
+      started = start === true;
     }
     const s = started ? await stateOf(handle.workflowId) : undefined;
     for (const stage of [...(s?.steps.map(x => x.stage) ?? []), s?.stage]) if (stage && !seen.has(stage)) { seen.add(stage); console.error(`stage ${stage}`); }

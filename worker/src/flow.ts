@@ -38,6 +38,8 @@ export function run<X extends object = object>({ runId, repo }: RunInput, more =
 
   // The run's wait for a human: no sandbox exists while it lasts (ORC-5, M6 D10).
   async function ask(question: string) {
+    // One question at a time: `state` has one slot, and `f8 answer` names the run, not the step.
+    if (st.question !== undefined) throw ApplicationFailure.nonRetryable('a question is already waiting', 'bad_ask');
     st.question = question;
     await condition(() => answers.length > 0);
     st.question = undefined;

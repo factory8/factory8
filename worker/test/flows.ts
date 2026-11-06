@@ -14,3 +14,9 @@ export async function stagesFlow(input: RunInput & { stages: string[] }) {
   const { step } = run(input);
   for (const s of input.stages) await step(s, `do ${s}`);
 }
+
+// The steps for its stages all at once, as a flow might run two reviewers.
+export async function parallelFlow(input: RunInput & { stages: string[] }) {
+  const { step } = run(input);
+  await Promise.all(input.stages.map(s => step(s, `do ${s}`)));
+}
