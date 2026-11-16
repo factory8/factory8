@@ -47,6 +47,7 @@ export function run<X extends object = object>({ runId, repo }: RunInput, more =
   }
 
   // One step in its own sandbox: create, start, poll, delete in `finally`; a question waits without a pod (M6 D1, D10).
+  // shortcut: run steps one at a time; a run that fails while another step runs leaves that step's pod. Upgrade to a cancellation scope when a flow needs parallel steps.
   async function step<T = string>(stage: string, prompt: string, opts: StepOptions<T> = {}): Promise<T> {
     if (!DNS_LABEL.test(stage) || used.has(stage))
       throw ApplicationFailure.nonRetryable(`stage ${JSON.stringify(stage)} must be a DNS label not used before in the run`, 'bad_stage');

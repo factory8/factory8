@@ -15,7 +15,7 @@ export async function stagesFlow(input: RunInput & { stages: string[] }) {
   for (const s of input.stages) await step(s, `do ${s}`);
 }
 
-// The steps for its stages all at once, as a flow might run two reviewers.
+// The steps for its stages all at once, to test the one-question limit; flows run steps one at a time (flow.ts, `step`).
 export async function parallelFlow(input: RunInput & { stages: string[] }) {
   const { step } = run(input);
   await Promise.all(input.stages.map(s => step(s, `do ${s}`)));
