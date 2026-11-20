@@ -67,8 +67,8 @@ export async function answerStep(ip: string, stepId: string, answer: string) {
 
 export interface Bands { design: Profile; acceptance: Profile; implement: Profile[]; review: Profile; diagnose: Profile; finish: Profile }
 
-// The ship run's settings, read once per run so its history holds them (M6 D9).
-export async function shipConfig(): Promise<{ bands: Bands; plugin: string }> {
+// The ship run's settings, read once per run so its history holds them (M6 D9); the plugin is at the image's commit (M7 D9).
+export async function shipConfig(): Promise<{ bands: Bands; plugin: { url: string; ref: string } }> {
   const bad = (why: string) => ApplicationFailure.nonRetryable(`bad FACTORY8_BANDS: ${why}`, 'bad_bands');
   let b: Bands;
   try { b = JSON.parse(process.env.FACTORY8_BANDS ?? ''); } catch { throw bad('not JSON'); }
@@ -76,8 +76,8 @@ export async function shipConfig(): Promise<{ bands: Bands; plugin: string }> {
   for (const k of ['design', 'acceptance', 'review', 'diagnose', 'finish'] as const)
     if (!one(b?.[k])) throw bad(`${k} needs a model`);
   if (!Array.isArray(b.implement) || !b.implement.length || !b.implement.every(one)) throw bad('implement needs a non-empty list of models');
-  if (!process.env.FACTORY8_PLUGIN) throw bad('FACTORY8_PLUGIN is not set');
-  return { bands: b, plugin: process.env.FACTORY8_PLUGIN };
+  for (const v of ['FACTORY8_PLUGIN', 'FACTORY8_PLUGIN_REF']) if (!process.env[v]) throw bad(`${v} is not set`);
+  return { bands: b, plugin: { url: process.env.FACTORY8_PLUGIN!, ref: process.env.FACTORY8_PLUGIN_REF! } };
 }
 
 // Long-polls the step's events after `after` until an exit event. A resumed step's log still holds its earlier exits.

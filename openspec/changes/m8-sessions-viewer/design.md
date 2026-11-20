@@ -152,7 +152,7 @@ That covers the stuck-step case in the spec. M2's `f8 watch` stays the live view
 
 ### D6. One answer per question, in the workflow
 
-**Proposed:** in `ship.ts`, the `answer` handler pushes only while a question waits and none is queued: `if (st.question !== undefined && answers.length === 0) answers.push(a)`. Signals delivered in one workflow task run their handlers before `ask()` resumes, so a double answer finds one already queued and is dropped. This is the backstop for the race that the inbox's and `f8 answer`'s checks leave open: two channels check, then both signal. The handler adds no commands, so a replay of a run in flight stays deterministic. If M7's `flow.ts` lands first, the guard goes there.
+**Proposed:** in `flow.ts`, which holds the `answer` handler for every flow since M7, the handler pushes only while a question waits and none is queued: `if (st.question !== undefined && answers.length === 0) answers.push(a)`. Signals delivered in one workflow task run their handlers before `ask()` resumes, so a double answer finds one already queued and is dropped. This is the backstop for the race that the inbox's and `f8 answer`'s checks leave open: two channels check, then both signal. The handler adds no commands, so a replay of a run in flight stays deterministic.
 - **Rejected:** a Temporal Update with a validator, which would refuse the second answer to its sender. That is better feedback, but it means a new API for `f8`, the inbox and the tests, and a dropped duplicate is harmless.
 
 ### D7. The PRD (approved by the user, written on 2026-11-05)

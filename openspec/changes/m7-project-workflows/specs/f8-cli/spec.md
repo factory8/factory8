@@ -37,6 +37,17 @@ Before it starts any run, `f8` SHALL check that a worker polls the repo's queue.
 - **WHEN** no worker polls `factory8/librepod/marketplace` and the user runs `f8 run --flow ship 3` in a clone of librepod/marketplace
 - **THEN** `f8` prints that no worker serves `factory8/librepod/marketplace`, exits non-zero, and no run exists
 
+### Requirement: f8 ends a run that can't start
+When a run's history has a failed workflow task and no completed one, `f8 run` SHALL print the first failure's message, terminate the run, and exit non-zero. A run with a completed workflow task SHALL NOT be terminated, wherever the failure is.
+
+#### Scenario: Flow the worker doesn't have
+- **WHEN** the user runs `f8 run --flow gatd 12` and the repo's worker has no `gatdWorkflow`
+- **THEN** `f8` prints that the worker's workflow bundle has no `gatdWorkflow`, the run is terminated, and `f8` exits non-zero
+
+#### Scenario: Retry completes on another worker
+- **WHEN** during a rollout the old worker fails a run's first workflow task and the new worker completes its retry
+- **THEN** `f8` doesn't terminate the run, and watches it
+
 ### Requirement: f8 prints a run's result by one rule
 When a run succeeds, `f8 run` SHALL print its result's `url` when it is a string, else its `summary` when that is a string, else the result as JSON. When it fails, `f8` SHALL print the failure's type and message and exit non-zero.
 

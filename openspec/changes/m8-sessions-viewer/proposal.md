@@ -56,7 +56,7 @@ Not in M8:
   - `adapter/src/main.ts`: the checkout path comes from `workdir` in the repo's `.factory8/project.yaml`, or else from the request's repo URL, not the `WORK` constant. `adapter/test/adapter.test.ts` checks both and the refused names. The sandbox image is rebuilt and its tag updated in `deploy/worker.yaml`;
   - `.factory8/project.yaml` in this repo: `workdir: factory8/factory8`, with comments;
   - a new workspace, `inbox/` (`src/main.ts` plus tests), which depends on `@temporalio/client` and `@colliepwa/durable-sdk` (experimental, pinned);
-  - `worker/src/ship.ts`: the `answer` handler's guard, plus a test. If M7 lands first, the guard goes into `worker/src/flow.ts` instead;
+  - `worker/src/flow.ts`: the `answer` handler's guard, plus a test;
   - root `package.json` workspaces.
 - **Nix:** `flake.nix` gains `viewer-image`, from the pinned `cchv-server` release tarball and its checksum, and `inbox-image`, from the same `app` as the worker's image.
 - **Deploy:**

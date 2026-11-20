@@ -2,6 +2,10 @@
   "name": "@factory8/worker",
   "private": true,
   "type": "module",
+  "exports": {
+    "./flow": "./src/flow.ts",
+    "./workflows": "./src/workflows.ts"
+  },
   "scripts": {
     "test": "node --test"
   },

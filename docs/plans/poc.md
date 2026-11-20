@@ -1,4 +1,4 @@
-# POC plan (Phase 0, M1–M6)
+# POC plan (Phase 0, M1–M7)
 
 **Status:** agreed 2026-10-22 · from PRD v0.6 §8 · tasks tracked in OpenSpec since 2026-10-23
 
@@ -24,6 +24,7 @@
 | M1: issue → sandboxed agent → draft PR (by hand) | `m1-issue-to-draft-pr` | |
 | M5: the SDLC run (plan, build, review/fix, ready PR) | `m5-sdlc-workflow` | 1.8 |
 | M6: the ship run (design, tests first, graded reviews, ladder, human waits) | `m6-ship-workflow` | M5 |
+| M7: a task queue per project, and workflows a project owns | `m7-project-workflows` | M6 |
 | M2: live progress and session logs | `m2-progress-and-logs` | M6 |
 | M3: questions with suspend/resume | `m3-questions-suspend-resume` | M6; its spike 3.1 only needs 1.4, so run it early |
 | M4: recovery | `m4-recovery` | M6, 2.2; its cleanup task 4.4 also needs 3.2 |
@@ -39,9 +40,10 @@
 - Scan project images (SBX-9).
 - Resource limits per step (SBX-7).
 - [#5](https://github.com/factory8/factory8/issues/5): authorization in Temporal. The web UI at `temporal.libre.pod` logs in through Casdoor (`deploy/web.yaml`), but the server has no `Authorizer`, so everyone who can log in can do anything, and the frontend's gRPC port, which `f8` reaches through a port-forward or the tailnet, takes no credentials. Fix: the server's JWT `ClaimMapper` and `Authorizer` with Casdoor's keys, and tokens for the worker and `f8`.
+- A project worker (ORC-14) runs with the shared worker's ServiceAccount, and `deleteSandbox` takes any run ID, so a project's workflow code can delete another project's sandbox. Fix: a ServiceAccount and Role per project worker, and sandbox pods labelled and checked by project.
 
 **Later:**
-- The project image build workflow (SBX-17, Phase 1). Until then, `nix build` runs by hand.
+- The project image build workflow (SBX-17, Phase 1), for sandbox and project worker images. Until then, `nix build` runs by hand.
 - Packaging: wrap `deploy/` into a Helm chart or something similar (packaged install, Phase 4). Until then, `kubectl apply -k deploy/` runs by hand.
 - Contracts not written yet (OQ-16): the run branch layout, front-matter and commit trailer; `IntentEnvelope` (fields only; INT is Phase 1). Each becomes a spec when a change first needs it.
 - Adapter: Codex and pi adapters (Phase 1 and 2); failure classes, result verification, and a resume-vs-handoff cost policy (NFR-7), which waits for real numbers.
