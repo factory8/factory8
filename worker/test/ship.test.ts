@@ -38,7 +38,7 @@ async function start(script: Record<string, unknown> = {}, cfg: object | null = 
   const calls: unknown[][] = [];
   const polls: Record<string, number> = {};
   const activities = {
-    shipConfig: async () => { if (!cfg) throw new Error('bad'); return { bands: cfg, plugin: 'https://github.com/o/p' }; },
+    shipConfig: async () => { if (!cfg) throw new Error('bad'); return { bands: cfg, plugin: { url: 'https://github.com/o/p', ref: 'c0ffee' } }; },
     createSandbox: async (...a: unknown[]) => { calls.push(['create', a[1]]); return '10.0.0.7'; },
     startStep: async (_ip: unknown, r: StepRequest) => { calls.push(['start', r.stepId.split('.')[1], r]); },
     answerStep: async (_ip: unknown, id: string, a: string) => { calls.push(['answer', id.split('.')[1], a]); },
@@ -77,7 +77,7 @@ const failure = (r: unknown) => {
   return { type: c.type, message: c.message };
 };
 
-test('straight through: steps in order, a sandbox each, the stage profiles, the plugin pinned at the start time', async () => {
+test('straight through: steps in order, a sandbox each, the stage profiles, the plugin pinned to one commit', async () => {
   const { calls, result } = await ship();
   assert.deepEqual(result, { outcome: 'ready', pr: 18, url: 'https://github.com/o/r/pull/18' });
   const order = ['design-1', 'design-review-1', 'acceptance-1', 'tests-review-1', 'implement-1', 'code-review-1', 'finish'];
@@ -88,9 +88,7 @@ test('straight through: steps in order, a sandbox each, the stage profiles, the 
   }
   assert.deepEqual(reqs(calls).map(r => r.profile), [bands.design, bands.review, bands.acceptance, bands.review, bands.implement[0], bands.review, bands.finish]
     );
-  const ats = new Set(reqs(calls).map(r => r.plugin!.at));
-  assert.equal(ats.size, 1);
-  assert.ok(Math.abs(Date.now() - Date.parse([...ats][0])) < 60_000);
+  assert.deepEqual(new Set(reqs(calls).map(r => r.plugin!.ref)), new Set(['c0ffee']));
   assert.equal(reqs(calls)[0].plugin!.url, 'https://github.com/o/p');
   assert.equal(prompt(calls, 'code-review-1'), '/factory8:review 12 run=k3x9qa mode=code pr=18 sha=i1 slot=1\n{"tests_sha":"a1","tests":["t.test.ts"]}');
   assert.equal(reqs(calls)[0].repo.branch, 'factory8/k3x9qa');
