@@ -27,7 +27,7 @@
   - that the ask reaches the phone as one push, and the typed reply reaches the sink;
   - that `decideAsk` closes the ask on the phone, and a tap after that shows it as too late;
   - whether a URL in the ask's body is tappable.
-- [ ] 8.3 One answer per question (design D6; `ship-workflow` delta; after none). Done when:
+- [x] 8.3 One answer per question (design D6; `ship-workflow` delta; after none). Done when:
   - the `answer` handler in `worker/src/flow.ts` queues an answer only while a question waits and none is queued;
   - `worker/test/flow.test.ts` covers two cases:
     - two answers to one question: the step resumes with the first, and the next question waits for a new answer;

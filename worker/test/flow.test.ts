@@ -42,19 +42,22 @@ async function start(type: string, args: object, script: Record<string, object[]
 const order = (calls: unknown[][]) => calls.map(c => `${c[0]} ${c[1]}`);
 type State = { stage: string; question?: string; steps: { stage: string; model?: string; result: unknown }[] };
 
+// Polls the run's state until `done` holds, and returns it; the worker must be running.
+async function until(w: Awaited<ReturnType<typeof start>>, done: (s: State) => boolean) {
+  for (;;) {
+    const s = await w.handle.query<State>('state');
+    if (done(s)) return s;
+    await new Promise(r => setTimeout(r, 50));
+  }
+}
+
 // Answers the run's first question with `answer`, and returns what the run looked like while it waited.
 async function answerFirst(w: Awaited<ReturnType<typeof start>>, answer: string) {
   return w.worker.runUntil(async () => {
-    for (;;) {
-      const s = await w.handle.query<State>('state');
-      if (s.question) {
-        const waiting = { state: s, calls: order(w.calls) };
-        await w.handle.signal('answer', answer);
-        const result = await w.handle.result();
-        return { ...waiting, result, end: await w.handle.query<State>('state') }; // a query needs the worker running
-      }
-      await new Promise(r => setTimeout(r, 50));
-    }
+    const waiting = { state: await until(w, s => !!s.question), calls: order(w.calls) };
+    await w.handle.signal('answer', answer);
+    const result = await w.handle.result();
+    return { ...waiting, result, end: await w.handle.query<State>('state') }; // a query needs the worker running
   });
 }
 
@@ -85,9 +88,37 @@ test('a question deletes the pod and shows in state; the answer recreates the sa
   assert.deepEqual(w.calls.filter(c => c[0] === 'poll').at(-1), ['poll', 'build', 1], 'the poll after the answer starts past the question');
 });
 
+const q = (question: string) => ({ status: 'needs_input', question });
+const answers = (w: Awaited<ReturnType<typeof start>>) => w.calls.filter(c => c[0] === 'answer').map(c => c[2]);
+
+test('two answers to one question: the step takes the first, and the next question waits for its own', async () => {
+  const w = await start('stagesFlow', { stages: ['build'] }, { build: [q('Which DB?'), q('Which port?')] });
+  await w.worker.runUntil(async () => {
+    await until(w, s => s.question === 'Which DB?');
+    await w.handle.signal('answer', 'Postgres');
+    await w.handle.signal('answer', 'MySQL'); // say, Collie's tap after `f8 answer`
+    const next = await until(w, s => s.question === 'Which port?' || s.steps.length > 0);
+    assert.equal(next.question, 'Which port?', 'the second answer is not taken for the next question');
+    await w.handle.signal('answer', '5432');
+    await w.handle.result();
+  });
+  assert.deepEqual(answers(w), ['Postgres', '5432']);
+});
+
+test('an answer with no question waiting is dropped', async () => {
+  const w = await start('stagesFlow', { stages: ['build'] }, { build: [q('Which DB?')] });
+  await w.handle.signal('answer', 'early'); // before the worker runs, so before any question
+  await w.worker.runUntil(async () => {
+    const s = await until(w, s => s.question !== undefined || s.steps.length > 0);
+    assert.equal(s.question, 'Which DB?', 'the early answer is not taken');
+    await w.handle.signal('answer', 'Postgres');
+    await w.handle.result();
+  });
+  assert.deepEqual(answers(w), ['Postgres']);
+});
+
 test('a second question while one waits fails the run with bad_ask', async () => {
-  const q = { status: 'needs_input', question: 'Which DB?' };
-  const w = await start('parallelFlow', { stages: ['review-a', 'review-b'] }, { 'review-a': [q], 'review-b': [q] });
+  const w = await start('parallelFlow', { stages: ['review-a', 'review-b'] }, { 'review-a': [q('Which DB?')], 'review-b': [q('Which DB?')] });
   const result = await w.worker.runUntil(w.handle.result().catch((e: Error) => e));
   assert.ok(result instanceof WorkflowFailedError, String(result));
   assert.equal((result.cause as Error & { type?: string }).type, 'bad_ask');

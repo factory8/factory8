@@ -34,7 +34,8 @@ export function run<X extends object = object>({ runId, repo }: RunInput, more =
   const answers: string[] = [];
   const used = new Set<string>();
   setHandler(state, () => st);
-  setHandler(answer, a => { answers.push(a); });
+  // One answer per question (M8 D6): one sent with no question waiting, or after another, would answer the next question.
+  setHandler(answer, a => { if (st.question !== undefined && answers.length === 0) answers.push(a); });
 
   // The run's wait for a human: no sandbox exists while it lasts (ORC-5, M6 D10).
   async function ask(question: string) {
