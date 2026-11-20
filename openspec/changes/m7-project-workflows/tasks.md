@@ -58,7 +58,7 @@
   - from the merged commit, factory8/factory8's sandbox image and the project worker image are built and imported, and their tags are in `deploy/projects/factory8.yaml`, whose Deployment has its own `app` label;
   - with no run in flight, `deploy/worker.yaml` (factory8/factory8 out of `FACTORY8_IMAGES`, 0 replicas) and `deploy/projects/factory8.yaml` are applied together;
   - a few minutes later, `temporal task-queue describe --task-queue factory8/factory8/factory8` shows one poller, and `factory8` none.
-- [ ] 7.9 First runs on the project queue (after 7.8). Done when, on factory8/factory8:
+- [x] 7.9 First runs on the project queue (after 7.8). Done when, on factory8/factory8:
   - `f8 run --flow gated <issue>` prints the plan stage, then the question; no sandbox pod exists while it waits; `f8 answer <run> go` resumes it; it builds and prints the summary;
   - a second gated run answered `no` ends with `rejected`;
   - `f8 run --flow ship <issue>` reaches its design step on the project worker, and while that step runs, `/f8/plugin` in its pod is at the image's `FACTORY8_PLUGIN_REF`;
