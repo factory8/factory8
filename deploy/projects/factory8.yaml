@@ -1,0 +1,39 @@
+# factory8/factory8's project worker (M7 design D7): the shared worker's settings, its own image and its own queue,
+# factory8/factory8/factory8. Its image comes from `nix build .#project-worker-image`, its sandbox image from
+# `nix build .#sandbox-image`; both tags are Nix hashes, updated here after an import. The image carries the workflow
+# bundle and FACTORY8_PLUGIN_REF. It uses the shared worker's ServiceAccount and Role (deploy/worker.yaml).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: factory8-worker-factory8-factory8
+  namespace: factory8
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: factory8-worker-factory8-factory8 } }
+  template:
+    metadata: { labels: { app: factory8-worker-factory8-factory8 } }
+    spec:
+      serviceAccountName: factory8-worker
+      containers:
+        - name: worker
+          image: factory8-worker-factory8-factory8:5xi80wd6bvc2wgpxzp9dkr8jaafhx5kx
+          imagePullPolicy: Never
+          env:
+            - name: TEMPORAL_ADDRESS
+              value: temporal-frontend:7233
+            - name: FACTORY8_MODEL
+              value: glm-5.3
+            - name: FACTORY8_REVIEW_MODEL
+              value: glm-5.3
+            - name: FACTORY8_IMAGES
+              value: '{"https://github.com/factory8/factory8": "factory8-sandbox:b4mqzl17994hlrpdshsbfsmqic5cq6kv"}'
+            - name: FACTORY8_PLUGIN
+              value: https://github.com/factory8/factory8
+            - name: FACTORY8_BANDS
+              value: >-
+                {"design": {"model": "glm-5.3", "effort": "high"},
+                "acceptance": {"model": "glm-5.3", "effort": "high"},
+                "implement": [{"model": "glm-5.3", "effort": "medium"}, {"model": "glm-5.3", "effort": "high"}],
+                "review": {"model": "glm-5.3", "effort": "high"},
+                "diagnose": {"model": "glm-5.3", "effort": "high"},
+                "finish": {"model": "glm-5.3-flash"}}

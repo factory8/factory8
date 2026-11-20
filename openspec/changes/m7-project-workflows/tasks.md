@@ -53,7 +53,7 @@
   - against a dev server with a worker on the queue, `f8 run --flow gatd 12` prints the worker's "no such function" error, terminates the run, and exits 1.
 
   The CLI tests and `npm run typecheck` pass.
-- [ ] 7.8 Deploy (*user* + me; design D7, Migration Plan; after 7.5, 7.6, 7.7). Done when:
+- [x] 7.8 Deploy (*user* + me; design D7, Migration Plan; after 7.5, 7.6, 7.7). Done when:
   - the change is merged, so `nix run` gives the new `f8`;
   - from the merged commit, factory8/factory8's sandbox image and the project worker image are built and imported, and their tags are in `deploy/projects/factory8.yaml`, whose Deployment has its own `app` label;
   - with no run in flight, `deploy/worker.yaml` (factory8/factory8 out of `FACTORY8_IMAGES`, 0 replicas) and `deploy/projects/factory8.yaml` are applied together;
