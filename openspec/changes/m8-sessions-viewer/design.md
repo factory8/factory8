@@ -137,7 +137,7 @@ That covers the stuck-step case in the spec. M2's `f8 watch` stays the live view
   - The session ID comes from `factory8-<runId>-<stage>/state/session` on the share, which the inbox mounts read-only, as the viewer does (D2). The adapter writes that file when the session starts.
   - The link's form depends on the viewer: `/sessions/<id>` for agentsview, `?session=<id>` for cchv.
   - `askId` is a hash of run ID, stage and question, so the same question keeps its ask, and its single push, across inbox restarts.
-- **The answer.** The ask's sink re-queries `state` and checks two things:
+- **The answer.** The ask's sink refuses a reply that is blank once trimmed, as `f8 answer` does, and leaves the ask open. Otherwise it re-queries `state` and checks two things:
   - if `question` is still that question, it signals `answer` with the text and replies `taken`;
   - otherwise it replies `too-late`, and nothing is sent.
 - **Closing.** On each poll, an open ask whose run no longer waits on its question is closed with `decideAsk` (decided by the program), and its pane is closed.

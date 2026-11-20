@@ -22,7 +22,7 @@ For every open run whose `state` query has a `question`, the inbox SHALL show a 
 - **THEN** the inbox shows no ask for it
 
 ### Requirement: A reply in Collie answers the run
-A text reply to an ask SHALL be sent to its run as the `answer` signal, unchanged, but only while that run still waits on that same question. Otherwise the reply SHALL be refused as too late, and no signal SHALL be sent.
+A text reply to an ask SHALL be sent to its run as the `answer` signal, unchanged, but only while that run still waits on that same question. Otherwise the reply SHALL be refused as too late, and no signal SHALL be sent. A reply that is blank once trimmed SHALL be refused, as `f8 answer` refuses a blank answer: no signal is sent, and the ask stays open.
 
 #### Scenario: Reply
 - **WHEN** the engineer replies "PostgreSQL" to `k3x9qa`'s ask
@@ -31,6 +31,10 @@ A text reply to an ask SHALL be sent to its run as the `answer` signal, unchange
 #### Scenario: Already answered
 - **WHEN** the engineer answered with `f8 answer`, and then replies to the same ask in Collie before it closed
 - **THEN** Collie shows the reply as too late, and the run receives no second answer
+
+#### Scenario: Blank reply
+- **WHEN** the engineer sends a reply of only spaces to `k3x9qa`'s ask
+- **THEN** the reply is refused, `k3x9qa` receives no `answer` signal, and the ask stays open
 
 ### Requirement: An ask closes when its question is gone
 When a run stops waiting on an ask's question (it got an answer from any channel, it was cancelled or it ended), the inbox SHALL close that ask within 30 s. It SHALL remove the run's pane once the run no longer waits on any question.

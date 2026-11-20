@@ -47,8 +47,8 @@ Not in M8:
 - `collie-inbox`: how a waiting run reaches Collie, what its pane holds, how a reply becomes the `answer` signal, and when an ask closes.
 
 ### Modified Capabilities
-- `agent-adapter`: the checkout moves from `/f8/work` to `/f8/<owner>/<repo>`, a name the repo can pin in `.factory8/project.yaml`. This changes "Checkout of the run branch", "AGENTS.md as Claude Code context", "Headless CLI run", "Protocol preamble" and "Filesystem layout". The last three are written against M6's version, so M6 must be archived first.
-- `ship-workflow`: a new requirement, "A question takes one answer": an `answer` that arrives while no question waits, or after its question already got one, is dropped. M6's change adds this capability, so it must be archived first.
+- `agent-adapter`: the checkout moves from `/f8/work` to `/f8/<owner>/<repo>`, a name the repo can pin in `.factory8/project.yaml`. This changes "Checkout of the run branch", "AGENTS.md as Claude Code context", "Headless CLI run", "Protocol preamble" and "Filesystem layout".
+- `ship-workflow`: a new requirement, "A question takes one answer": an `answer` that arrives while no question waits, or after its question already got one, is dropped.
 
 ## Impact
 

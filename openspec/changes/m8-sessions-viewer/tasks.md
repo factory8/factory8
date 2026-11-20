@@ -67,6 +67,7 @@
     - `askId` is the same for the same run, stage and question, and different for a new question;
     - the link is built from the step's `state/session` file and the picked viewer's deep-link form;
     - the sink signals `answer` and replies `taken` when the run still waits on that question, and replies `too-late` with no signal otherwise;
+    - the sink refuses a blank reply, before it queries `state`, and sends no signal;
     - the bearer check answers 401 to a missing or wrong token;
   - `nix build .#inbox-image` passes.
 
@@ -87,5 +88,4 @@
 
 ## Workflow follow-up
 
-- Archive M6 (`m6-ship-workflow`) before this change. M8 adds a requirement to `ship-workflow`, which M6 creates, and modifies the `agent-adapter` requirements that M6 rewrites.
 - When 8.8 holds, archive this change (`/openspec-archive-change`).
