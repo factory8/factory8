@@ -25,6 +25,12 @@ test('the arguments: run, run --flow <name>, a malformed flow name, and answer',
     assert.equal(parseArgs(bad), undefined, bad.join(' '));
 });
 
+test('a blank answer is no answer', () => {
+  for (const text of [[''], [' '], [' ', ' '], ['\t']])
+    assert.equal(parseArgs(['answer', 'k3x9qa', ...text]), undefined, JSON.stringify(text));
+  assert.deepEqual(parseArgs(['answer', 'k3x9qa', ' use PostgreSQL ']), { cmd: 'answer', run: 'k3x9qa', text: ' use PostgreSQL ' });
+});
+
 test('a run started once any workflow task completed, even after a failed one; else it can\'t start', () => {
   const completed = { workflowTaskCompletedEventAttributes: {} };
   const failed = { workflowTaskFailedEventAttributes: { failure: { message: 'no such function' } } };
