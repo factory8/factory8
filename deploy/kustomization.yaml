@@ -4,4 +4,5 @@ resources:
   - eso.yaml
   - postgres.yaml
   - worker.yaml
+  - projects/factory8.yaml
   - web.yaml
