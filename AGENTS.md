@@ -16,7 +16,8 @@ Factory8 is a self-hosted AI-native software factory. Temporal workflows, writte
 - `npm test`: tests (`node --test`), inside the dev shell: the worker's tests start its `temporal`.
 - `npm run typecheck`: `tsc`, no emit.
 - `nix build .#sandbox-image`: the sandbox image (M1 design D3). The result is a script that streams the image; pipe it to `docker load` or `k3s ctr images import -`.
-- `nix build .#worker-image -o result-worker`: the worker's image (M1 design D4), streamed the same way. After importing either image, put its new tag in `deploy/worker.yaml`.
+- `nix build .#worker-image -o result-worker`: the shared worker's image (M1 design D4), streamed the same way: the flake's `lib.workerImage` with the built-in flows only, bundled at build and pinned to the commit it's built from (a dirty tree fails). After importing either image, put its new tag in `deploy/worker.yaml`.
+- `nix build .#project-worker-image` (M7): this repo's own project worker image, made by the flake's `lib.workerImage` from `.factory8/workflows/` and the built-in flows, bundled at build and pinned to the commit it's built from (a dirty tree fails). Its tag goes in `deploy/projects/factory8.yaml`.
 
 ## Layout
 
@@ -24,8 +25,9 @@ Factory8 is a self-hosted AI-native software factory. Temporal workflows, writte
 - `openspec/`: specs and changes (see "Read first").
 - `adapter/`: `f8-adapter`, the daemon inside each sandbox that runs the agent CLI (`agent-adapter` spec), and `f8-ask`.
 - `worker/`: the Temporal worker and its workflows: the M1/M5 SDLC run (`run-workflow` spec) and the M6 ship run (`ship-workflow` spec); it manages sandboxes and talks to the adapter, nothing else.
-- `plugin/`: the `factory8` Claude Code plugin, one skill per ship stage (`factory8-plugin` spec). Stage prompts change here, not in worker code; a commit changes the next run's prompts with no deploy. Try one locally with `claude --plugin-dir plugin`.
-- `cli/`: `f8`, the engineer's terminal (`f8-cli` spec). `f8 run <issue>` in a clone starts a run and prints the agent's summary; `f8 run --flow ship <issue>` starts a ship run and prints its stages, and `f8 answer <run> "<text>"` answers its question. It reaches Temporal at `TEMPORAL_ADDRESS`: through Tailscale, `temporal-frontend.factory8.svc.cluster.local:7233`; otherwise the default `localhost:7233` and `kubectl -n factory8 port-forward svc/temporal-frontend 7233`. From any clone: `nix run <this repo>#f8 -- run 12`.
+- `plugin/`: the `factory8` Claude Code plugin, one skill per ship stage (`factory8-plugin` spec). Stage prompts change here, not in worker code. From M7 a run loads the plugin at its worker image's commit, so a skill change reaches runs with the next worker image. Try one locally with `claude --plugin-dir plugin`.
+- `.factory8/workflows/` (M7): this repo's own flows, TypeScript workflows built into its project worker image.
+- `cli/`: `f8`, the engineer's terminal (`f8-cli` spec). `f8 run <issue>` in a clone starts a run and prints the agent's summary; `f8 run --flow ship <issue>` starts a ship run and prints its stages, and `f8 answer <run> "<text>"` answers its question. From M7, `f8 run --flow <name> <issue>` starts any flow, built-in or the project's own, on the repo's task queue `factory8/<owner>/<repo>`. It reaches Temporal at `TEMPORAL_ADDRESS`: through Tailscale, `temporal-frontend.factory8.svc.cluster.local:7233`; otherwise the default `localhost:7233` and `kubectl -n factory8 port-forward svc/temporal-frontend 7233`. From any clone: `nix run <this repo>#f8 -- run 12`.
 
 ## When the PRD changes
 

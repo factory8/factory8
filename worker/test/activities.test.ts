@@ -52,22 +52,25 @@ const withEnv = async <T>(env: Record<string, string | undefined>, f: () => Prom
 const bands = { design: { model: 'a' }, acceptance: { model: 'a', effort: 'high' }, implement: [{ model: 'b' }, { model: 'a' }],
   review: { model: 'r' }, diagnose: { model: 'r' }, finish: { model: 'b' } };
 
-test('shipConfig returns the bands and the plugin URL, also with one model for every stage (DEP-11)', async () => {
+test('shipConfig returns the bands and the pinned plugin, also with one model for every stage (DEP-11)', async () => {
   const one = { ...bands, review: { model: 'a' }, diagnose: { model: 'a' } };
   for (const b of [bands, one]) {
-    const c = await withEnv({ FACTORY8_BANDS: JSON.stringify(b), FACTORY8_PLUGIN: 'https://github.com/o/p' }, shipConfig);
-    assert.deepEqual(c, { bands: b, plugin: 'https://github.com/o/p' });
+    const c = await withEnv({ FACTORY8_BANDS: JSON.stringify(b), FACTORY8_PLUGIN: 'https://github.com/o/p', FACTORY8_PLUGIN_REF: 'c0ffee' }, shipConfig);
+    assert.deepEqual(c, { bands: b, plugin: { url: 'https://github.com/o/p', ref: 'c0ffee' } });
   }
 });
 
-test('shipConfig fails with bad_bands on a missing key or an empty implement', async () => {
+test('shipConfig fails with bad_bands on a missing key, an empty implement, or no plugin URL or ref', async () => {
+  const badBands = (e: Error & { type?: string; nonRetryable?: boolean }) => e.type === 'bad_bands' && e.nonRetryable === true;
   const cases = [
     { ...bands, finish: undefined }, { ...bands, implement: [] }, { ...bands, review: { model: '' } },
   ];
   for (const c of cases)
-    await assert.rejects(withEnv({ FACTORY8_BANDS: JSON.stringify(c), FACTORY8_PLUGIN: 'u' }, shipConfig),
-      (e: Error & { type?: string; nonRetryable?: boolean }) => e.type === 'bad_bands' && e.nonRetryable === true);
-  await assert.rejects(withEnv({ FACTORY8_BANDS: undefined, FACTORY8_PLUGIN: 'u' }, shipConfig), /bad_bands|bad FACTORY8_BANDS/);
+    await assert.rejects(withEnv({ FACTORY8_BANDS: JSON.stringify(c), FACTORY8_PLUGIN: 'u', FACTORY8_PLUGIN_REF: 'r' }, shipConfig), badBands);
+  await assert.rejects(withEnv({ FACTORY8_BANDS: undefined, FACTORY8_PLUGIN: 'u', FACTORY8_PLUGIN_REF: 'r' }, shipConfig), /bad_bands|bad FACTORY8_BANDS/);
+  for (const v of ['FACTORY8_PLUGIN', 'FACTORY8_PLUGIN_REF'])
+    await assert.rejects(withEnv({ FACTORY8_BANDS: JSON.stringify(bands), FACTORY8_PLUGIN: 'u', FACTORY8_PLUGIN_REF: 'r', [v]: undefined }, shipConfig),
+      (e: Error & { type?: string }) => badBands(e) && e.message.includes(`${v} is not set`));
 });
 
 test('startStep keeps a request\'s profile, and answerStep POSTs the answer', async () => {

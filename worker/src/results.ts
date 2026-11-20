@@ -1,4 +1,5 @@
 // Step commands, results and the run's report as pure functions (M6 design D3, D6, D12), so the workflow can call them.
+import type { StepRecord } from './flow.ts';
 
 export type Skill = 'design' | 'acceptance' | 'implement' | 'review' | 'diagnose' | 'finish';
 export const CAUSES = 'ABCDEFGHI';
@@ -55,7 +56,6 @@ export const command = (skill: Skill, issue: number, args: Record<string, string
   `/factory8:${skill} ${issue}${Object.entries(args).filter(([, v]) => v !== undefined).map(([k, v]) => ` ${k}=${v}`).join('')}` +
   (context === undefined ? '' : `\n${JSON.stringify(context)}`);
 
-export interface StepRecord { stage: string; model: string; result: unknown }
 export interface RunReport { outcome: string; steps: StepRecord[]; causes: { cause: string; note: string }[] }
 
 // What the finish step posts: the outcome, the steps, the causes and the non-blocking findings as follow-ups (D12).

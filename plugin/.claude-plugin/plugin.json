@@ -1,5 +1,4 @@
 {
   "name": "factory8",
-  "description": "What each Factory8 ship stage's agent is expected to do, one skill per stage",
-  "version": "0.1.0"
+  "description": "What each Factory8 ship stage's agent is expected to do, one skill per stage"
 }
