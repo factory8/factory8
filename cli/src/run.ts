@@ -14,7 +14,11 @@ export type Command = { cmd: 'run'; flow: string; issue: number } | { cmd: 'answ
 // Any flow name that makes `<name>Workflow` a valid workflow type: the repo's worker says whether it has it.
 export function parseArgs(argv: string[]): Command | undefined {
   const [cmd, ...rest] = argv;
-  if (cmd === 'answer') return rest.length > 1 ? { cmd, run: rest[0], text: rest.slice(1).join(' ') } : undefined;
+  // A blank answer is no answer (#19): the text is kept as typed, only the check trims.
+  if (cmd === 'answer') {
+    const text = rest.slice(1).join(' ');
+    return text.trim() ? { cmd, run: rest[0], text } : undefined;
+  }
   if (cmd !== 'run') return undefined;
   const flow = rest[0] === '--flow' ? rest.splice(0, 2)[1] : 'sdlc';
   const issue = Number(rest[0]);
