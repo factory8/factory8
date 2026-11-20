@@ -34,7 +34,7 @@
     - an answer sent with no question waiting: it is dropped.
 
   `npm test` and `npm run typecheck` pass.
-- [ ] 8.4 A checkout per repo (design D8; `agent-adapter` delta; after none). Done when:
+- [x] 8.4 A checkout per repo (design D8; `agent-adapter` delta; after none). Done when:
   - `workdir(url, projectYaml?)` in the adapter replaces `WORK`. Its tests cover:
     - with no `workdir`: `https://github.com/librepod/marketplace.git` and `https://github.com/factory8/factory8` give `/f8/librepod/marketplace` and `/f8/factory8/factory8`, and a local bare-repo path gives its last two segments;
     - `workdir: acme/shop` overrides the URL, also with comment lines around it, quotes and a trailing comment;

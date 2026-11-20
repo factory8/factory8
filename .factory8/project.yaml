@@ -1,0 +1,14 @@
+# What Factory8 needs to know about this repo that its own files can't say (PRJ-1).
+# Read from the default branch when a step starts; a run branch can't change it.
+
+# workdir: <owner>/<repo>. Each step checks the repo out at /f8/<owner>/<repo> in its
+# sandbox, and Claude Code files the step's session under that directory, so this is
+# the project the session viewer lists the repo's sessions under.
+# Leave it out and the name is the repo URL's last two path segments, without .git:
+# here factory8/factory8, the same as the value below. Set it when the repo moves to
+# another owner or GitLab group, so its new sessions stay with the old ones.
+# Refused, failing the step: anything but two segments, a segment that doesn't start
+# with a letter, a digit or _, characters other than letters, digits, ., _ and -,
+# and the owners home, state and plugin, which are the sandbox's own directories.
+# Write it as one top-level line, as below; quotes and a trailing comment are fine.
+workdir: factory8/factory8
