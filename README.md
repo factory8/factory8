@@ -25,11 +25,15 @@ Without Tailscale, leave `TEMPORAL_ADDRESS` unset (it defaults to `localhost:723
 
 A small change takes about a minute.
 
+- **Flows.** `f8 run --flow <name> <issue>` starts the workflow `<name>Workflow` on the repo's own queue `factory8/<owner>/<repo>`, served by the repo's worker. `sdlc` is the default and `ship` the other built-in flow; a repo's own flows live in `.factory8/workflows/` (this repo has `gated`: a plan, your go-ahead, then the build). A name starts with a lowercase letter and holds only letters and digits. A name the repo's worker has no workflow for ends the run at once with the worker's message. While `f8` waits it prints each stage as it starts; a run that ends ready prints the PR's URL, any other end prints why and exits 1.
+- **Answering a question.** A flow that asks one — `ship` and the project flows — waits without a sandbox, and `f8` prints the question together with `f8 answer <run> "<text>"`. Answer in another terminal (Ctrl-C stops only the wait) and the run carries on. `f8 answer` on a run that isn't waiting prints so and exits 1.
+- **No worker, no run.** Before any run, `f8` checks that a worker polls the repo's queue; when none does, it prints `no worker serves factory8/<owner>/<repo>` and exits 1 without starting a run.
+
 **Watching:** the run is the workflow `<id>` in the Temporal UI (`deploy/web.yaml`). The UI shows the sandbox and agent steps, not what the agent is doing inside them.
 
 **When it doesn't end in a PR,** `f8` exits 1 and prints one of these:
 - `failed: <reason>`: the agent or its sandbox failed. The branch may hold partial work.
-- `needs_input: <question>`: the agent asked a question that only you can answer. You can't answer it in the run yet, so add the answer to the issue and run again.
+- `needs_input: <question>`: the agent asked a question that only you can answer. This run doesn't wait — only the flows above that do can be answered — so add the answer to the issue and run again.
 
 **Ctrl-C** only stops `f8` waiting; the run carries on.
 
@@ -37,4 +41,4 @@ A small change takes about a minute.
 - **Review the PR** like any other, then mark it ready and merge it. Prefer a merge commit or rebase: a squash drops the `Factory8-Run` trailer.
 - **Clean up by hand:** if you close the PR, delete its branch too. The run's PVCs `factory8-<id>-<step>` stay on the share until you delete them (`kubectl -n factory8-sandboxes delete pvc -l factory8/run=<id>`).
 
-**Not there yet:** follow-ups on the same run (feedback, answers), cancelling a run, live progress (`f8 watch`), Docker inside the sandbox, and images for repos other than factory8/factory8.
+**Not there yet:** follow-ups on the same run (feedback), cancelling a run, live progress (`f8 watch`), Docker inside the sandbox, and images for repos other than factory8/factory8.
