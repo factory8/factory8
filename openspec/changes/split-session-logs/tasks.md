@@ -68,7 +68,7 @@
 
 ## 7. On the pilot cluster
 
-- [ ] 7.1 Deploy and check (*user* + me; design Migration Plan; after 4.1, 5.1, 6.1).
+- [x] 7.1 Deploy and check (*user* + me; design Migration Plan; after 4.1, 5.1, 6.1).
   - *user*: Migration Plan steps 1 and 2.
   - **Done when,** on a ship run on factory8/factory8 started after the deploy:
     - while a step runs, its session grows under `factory8-sessions/<runId>-<stage>/projects/` on the share;
@@ -76,7 +76,7 @@
     - a step that waits on a question keeps its PVC until it ends after the answer;
     - a finished step's session, copied into `~/.claude/projects/`, resumes with `claude --resume <id>`.
 - [ ] 7.2 *user*, optional: copy the PVCs kept from before into the log volume, then delete them (Migration Plan step 3; after 7.1).
-  - **Done when** `ls <export>/factory8-sandboxes` shows only `factory8-sessions` and the PVCs of active steps.
+  - **Done when** `ls <export>/factory8-sandboxes` shows only `factory8-sessions`. Active steps' folders are at the export's root (design D4).
 
 ## Workflow follow-up
 

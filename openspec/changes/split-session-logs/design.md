@@ -97,7 +97,9 @@ See proposal.md for why. What exists now:
   - the pilot cluster's provisioner, `k8s-sigs.io/nfs-subdir-external-provisioner`;
   - `reclaimPolicy: Delete`;
   - `onDelete: delete`;
-  - `nfs-client`'s `pathPattern`, `${.PVC.namespace}/${.PVC.name}`, so a step's folder on the share keeps its name while the step lives.
+  - no `pathPattern`, so a step's folder is the provisioner's default, `<namespace>-<pvc>-<pv>` at the export's root.
+    - The pilot cluster's provisioner, v4.0.2, deletes only a folder at the root: its `Delete` keeps the path's last element.
+    - So `nfs-client`'s pattern, `${.PVC.namespace}/${.PVC.name}`, left each folder behind; task 7.1 found it. The fix is on the provisioner's master, in no release yet.
 - **The worker asks for `factory8-workspace` by name.**
   - Another installation defines that class on its own storage: ReadWriteOnce is enough, deleting on reclaim, and networked on multi-node installs (SBX-15).
   - The name is the contract, so no variable is needed.

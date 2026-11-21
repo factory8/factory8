@@ -6,9 +6,9 @@ metadata:
   name: factory8-workspace
 provisioner: k8s-sigs.io/nfs-subdir-external-provisioner
 reclaimPolicy: Delete
+# No pathPattern: the provisioner's v4.0.2 deletes only a folder at the export's root, so a nested one would stay.
 parameters:
   onDelete: delete
-  pathPattern: ${.PVC.namespace}/${.PVC.name}
 ---
 # Every step's session logs, a folder <runId>-<stage> per step that only its sandbox mounts (split-session-logs D1).
 # nfs-client keeps the folder if this PVC is deleted by mistake.
