@@ -15,7 +15,7 @@
 
 ## 2. Docs
 
-- [ ] 2.1 PRD and site (design D6; after 1.1).
+- [x] 2.1 PRD and site (design D6; after 1.1).
   - The user approves D6's wording. It is then written to `docs/PRD.md`: AGT-11, SBX-15, PLT-9 and the §12 row, plus a §0 row.
   - `docs/site/prd.html` and `architecture.html` match.
   - `docs/site/arch.d2` shows the log volume apart from the step's PVC, with the viewer reading the log volume, re-rendered to `arch.svg`.

@@ -17,22 +17,24 @@ cp: "CONTROL PLANE — trusted · one installation per client · on-prem k3s (Ni
     l: "LLM = LiteLLM\n(any provider; POC: static key)"
     d: "Deploy (per-env tools)"
   }
-  ctrl: "Kubernetes API\nKata pod + PVC per run"
+  ctrl: "Kubernetes API\nKata pod + PVC per step"
   builder: "Project agent builder\nNix dev shell · AGENTS.md · project.yaml\n→ image + sandbox template · checked"
   viewer: "Session viewer (third-party)\nread-only · token-gated"
   inbox: "Phone inbox → Collie\nquestion · link to session · token-gated"
   builder -> wf: "project template"
   intake -> tmp: starts runs
   wf -> tmp: runs on
-  wf -> ctrl: "create · delete pod\n(suspend = delete, PVC kept)"
+  wf -> ctrl: "create · delete pod, then PVC\n(a question: pod only, PVC kept)"
 }
 ep: "EXECUTION PLANE — untrusted · disposable" {
   style: {fill: "#ffebee"; bold: true}
   sb: "Sandbox = Kata microVM\nroot inside OK: docker compose, installs\nadapter daemon → any CLI (claude · codex · pi …)" {style: {fill: "#ffcdd2"; bold: true}}
-  pvc: "PVC: workspace · session logs (*.jsonl)\nhandoff note — outlives the sandbox\nnever credentials" {shape: cylinder}
+  pvc: "Step's PVC: workspace\ndeleted when the step ends\nnever credentials" {shape: cylinder}
+  logs: "Session-log volume: a folder per step\n*.jsonl · state · handoff note\noutlives the step · never credentials" {shape: cylinder}
   proxy: "Egress proxy — allowlist\n→ read-only package mirrors"
   ci: "Secret-free CI runners\nfor agent branches"
   sb -> pvc
+  sb -> logs: "its own folder only"
 }
 blocked: "BLOCKED: Temporal · k8s API · other sandboxes\ncluster network · open internet" {style: {fill: "#fff"; stroke: "#d32f2f"; font-color: "#d32f2f"; bold: true}}
 out: "Outside: LLM providers · package registries\nJira/Confluence (linked)" {style: {fill: "#f3e5f5"}}
@@ -50,7 +52,7 @@ ep.sb -> blocked: "" {style: {stroke: "#d32f2f"; stroke-width: 3; stroke-dash: 4
 forge <- cp.gw.g: "push run branch"
 forge <- cp.builder: "read project files\n(default branch)"
 forge -> ep.ci: "agent branches"
-cp.viewer <- ep.pvc: "sessions\n(read-only, in place)"
+cp.viewer <- ep.logs: "sessions\n(read-only, in place)"
 cp.inbox -> cp.tmp: "waiting runs · answer signal"
 humans -> cp.viewer: "read sessions\n(browser, phone)"
 humans -> cp.inbox: "answer from the phone\n(Collie)"
