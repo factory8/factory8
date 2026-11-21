@@ -3,6 +3,7 @@ resources:
   - namespaces.yaml
   - eso.yaml
   - postgres.yaml
+  - sessions.yaml
   - worker.yaml
   - projects/factory8.yaml
   - web.yaml

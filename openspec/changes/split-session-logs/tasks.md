@@ -4,7 +4,7 @@
 
 ## 1. Check subPath under Kata
 
-- [ ] 1.1 Try subPath under Kata on the pilot cluster (design D1, Risks; after none).
+- [x] 1.1 Try subPath under Kata on the pilot cluster (design D1, Risks; after none).
   - **Setup.** In a scratch namespace, create a throwaway ReadWriteMany PVC on `nfs-client`. Two Kata pods mount it with `subPath: a` and `subPath: b` at `/f8-logs`.
   - **Done when** D1 records that:
     - each Kata pod's file lands in its own folder;
@@ -36,14 +36,14 @@
 
 ## 4. Deploy manifests
 
-- [ ] 4.1 The class, the log volume and the Role (design D1, D3, D4; after 1.1).
+- [x] 4.1 The class, the log volume and the Role (design D1, D3, D4; after 1.1).
   - `deploy/sessions.yaml` has the StorageClass `factory8-workspace` and the PVC `factory8-sessions`, with a comment each on why. It is listed in `deploy/kustomization.yaml`.
   - The Role in `deploy/worker.yaml` gains `delete` on `persistentvolumeclaims`.
   - **Done when** `kubectl kustomize deploy/` renders both objects and the Role's `delete`.
 
 ## 5. Adapter
 
-- [ ] 5.1 Logs on `/f8-logs` (design D2; `agent-adapter` delta; after 1.1).
+- [x] 5.1 Logs on `/f8-logs` (design D2; `agent-adapter` delta; after 1.1).
   - `adapter/src/main.ts` sets `LOGS` to `${ROOT}-logs` and `STATE` to `${LOGS}/state`. At start it creates `${LOGS}/projects` and links `${HOME}/.claude/projects` to it, unless that path exists.
   - `adapter/test/adapter.test.ts` checks that:
     - a fresh start creates `<root>-logs/state`, `<root>-logs/projects` and the link;
@@ -54,7 +54,7 @@
 
 ## 6. Worker
 
-- [ ] 6.1 The log mount, the class, and deleting the workspace (design D1, D3, D4; `sandbox` and `run-workflow` deltas; after 1.1).
+- [x] 6.1 The log mount, the class, and deleting the workspace (design D1, D3, D4; `sandbox` and `run-workflow` deltas; after 1.1).
   - In `worker/src/activities.ts`:
     - `sandboxPod` mounts `factory8-sessions` with `subPath: <runId>-<stage>` at `/f8-logs`;
     - `createSandbox` asks for `factory8-workspace`;

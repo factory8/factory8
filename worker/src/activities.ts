@@ -24,11 +24,21 @@ export const sandboxPod = (runId: string, stage: string, image: string): k8s.V1P
       imagePullPolicy: 'Never', // imported onto the node, tagged with its Nix hash (D3)
       ports: [{ containerPort: PORT }],
       envFrom: [{ secretRef: { name: 'factory8-sandbox' } }],
-      volumeMounts: [{ name: 'factory8', mountPath: '/f8' }],
+      // The step's own folder of the session-log volume, so it sees no other step's session (split-session-logs D1).
+      volumeMounts: [{ name: 'factory8', mountPath: '/f8' }, { name: 'sessions', mountPath: '/f8-logs', subPath: `${runId}-${stage}` }],
       readinessProbe: { tcpSocket: { port: PORT } },
     }],
-    volumes: [{ name: 'factory8', persistentVolumeClaim: { claimName: `factory8-${runId}-${stage}` } }],
+    volumes: [
+      { name: 'factory8', persistentVolumeClaim: { claimName: `factory8-${runId}-${stage}` } },
+      { name: 'sessions', persistentVolumeClaim: { claimName: 'factory8-sessions' } },
+    ],
   },
+});
+
+// The step's workspace; each installation defines the class on its own storage (split-session-logs D4).
+export const workspacePvc = (runId: string, stage: string): k8s.V1PersistentVolumeClaim => ({
+  metadata: { name: `factory8-${runId}-${stage}`, labels: labels(runId, stage) },
+  spec: { storageClassName: 'factory8-workspace', accessModes: ['ReadWriteOnce'], resources: { requests: { storage: '10Gi' } } },
 });
 
 // Creates the step's PVC and pod, and returns the pod's IP once it's Ready.
@@ -37,10 +47,7 @@ export async function createSandbox(runId: string, stage: string, repo: string):
   const image = JSON.parse(process.env.FACTORY8_IMAGES ?? '{}')[repo];
   if (!image) throw ApplicationFailure.nonRetryable(`no image for ${repo}`);
   const name = `factory8-${runId}-${stage}`;
-  await core.createNamespacedPersistentVolumeClaim({ namespace: NS, body: {
-    metadata: { name, labels: labels(runId, stage) },
-    spec: { storageClassName: 'nfs-client', accessModes: ['ReadWriteOnce'], resources: { requests: { storage: '10Gi' } } },
-  } }).catch(ignore(409));
+  await core.createNamespacedPersistentVolumeClaim({ namespace: NS, body: workspacePvc(runId, stage) }).catch(ignore(409));
   for (;;) {
     const pod = await core.readNamespacedPod({ name, namespace: NS }).catch(ignore(404));
     if (!pod) await core.createNamespacedPod({ namespace: NS, body: sandboxPod(runId, stage, image) }).catch(ignore(409));
@@ -97,4 +104,9 @@ export async function pollStep(ip: string, stepId: string, after = 0): Promise<E
 // Deletes only the pod: the PVC keeps the session logs (AGT-11).
 export async function deleteSandbox(runId: string, stage: string) {
   await core.deleteNamespacedPod({ name: `factory8-${runId}-${stage}`, namespace: NS }).catch(ignore(404));
+}
+
+// The step's PVC, once the step has ended; PVC protection holds it until the pod is gone (split-session-logs D3).
+export async function deleteWorkspace(runId: string, stage: string) {
+  await core.deleteNamespacedPersistentVolumeClaim({ name: `factory8-${runId}-${stage}`, namespace: NS }).catch(ignore(404));
 }

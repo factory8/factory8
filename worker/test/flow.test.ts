@@ -31,6 +31,7 @@ async function start(type: string, args: object, script: Record<string, object[]
       return { seq: k, at: '', stepId, type: 'exit', ...(script[stage]?.[k - 1] ?? { status: 'done', summary: `${stage} done` }) };
     },
     deleteSandbox: async (_run: string, stage: string) => { calls.push(['delete', stage]); },
+    deleteWorkspace: async (_run: string, stage: string) => { calls.push(['delete-pvc', stage]); },
   };
   const id = ++n; // a queue per run, so a leftover workflow never reaches another test's mocks
   const worker = await Worker.create({ connection: env.nativeConnection, taskQueue: `flow-${id}`, activities,
@@ -65,11 +66,11 @@ test('steps run in their own sandboxes, with a record each; ask waits between th
   const w = await start('gateFlow', {});
   const { state, calls, result, end } = await answerFirst(w, 'go');
   assert.equal(state.question, 'build PLAN DONE?');
-  assert.deepEqual(calls, ['create plan', 'start plan', 'poll plan', 'delete plan'], 'no sandbox while it waits');
+  assert.deepEqual(calls, ['create plan', 'start plan', 'poll plan', 'delete plan', 'delete-pvc plan'], 'no sandbox while it waits');
   assert.deepEqual(state.steps, [{ stage: 'plan', model: 'p', result: 'PLAN DONE' }]);
   assert.deepEqual(Object.keys(state.steps[0]), ['stage', 'model', 'result']);
   assert.equal(result, 'build done');
-  assert.deepEqual(order(w.calls).slice(4), ['create build', 'start build', 'poll build', 'delete build']);
+  assert.deepEqual(order(w.calls).slice(5), ['create build', 'start build', 'poll build', 'delete build', 'delete-pvc build']);
   const [plan, build] = w.calls.filter(c => c[0] === 'start');
   assert.deepEqual(plan[2], { stepId: 'k3x9qa.plan.1', runId: 'k3x9qa', prompt: 'make a plan',
     repo: { url: 'https://github.com/o/r', branch: 'factory8/k3x9qa' }, profile: { model: 'p' } });
@@ -82,10 +83,17 @@ test('a question deletes the pod and shows in state; the answer recreates the sa
   const { state, calls } = await answerFirst(w, 'Postgres');
   assert.equal(state.question, 'Which DB?');
   assert.equal(state.stage, 'build');
-  assert.equal(calls.at(-1), 'delete build', 'the pod is gone while it waits');
-  assert.deepEqual(order(w.calls).slice(4), ['create build', 'answer build', 'poll build', 'delete build']);
+  assert.equal(calls.at(-1), 'delete build', 'the pod is gone while it waits, and the PVC stays');
+  assert.deepEqual(order(w.calls).slice(4), ['create build', 'answer build', 'poll build', 'delete build', 'delete-pvc build']);
   assert.deepEqual(w.calls.find(c => c[0] === 'answer'), ['answer', 'build', 'Postgres']);
   assert.deepEqual(w.calls.filter(c => c[0] === 'poll').at(-1), ['poll', 'build', 1], 'the poll after the answer starts past the question');
+});
+
+test('a failed step deletes its pod, then its PVC', async () => {
+  const w = await start('stagesFlow', { stages: ['build'] }, { build: [{ status: 'failed', reason: 'claude exited 1' }] });
+  const result = await w.worker.runUntil(w.handle.result().catch((e: Error) => e));
+  assert.ok(result instanceof WorkflowFailedError, String(result));
+  assert.deepEqual(order(w.calls), ['create build', 'start build', 'poll build', 'delete build', 'delete-pvc build']);
 });
 
 const q = (question: string) => ({ status: 'needs_input', question });

@@ -43,6 +43,11 @@ See proposal.md for why. What exists now:
   - The pod's mount is that folder only, so a step sees no other step's session (DEP-11, the `run-workflow` spec's "A sandbox per step").
   - The step's next pod, after a question or a pod death, mounts the same folder.
 - **The namespace.** It lives in `factory8-sandboxes`, because a pod can mount only PVCs in its own namespace. A reader (M8's viewer) runs there too.
+- **Checked on the pilot cluster** (2026-11-21, task 1.1): a throwaway ReadWriteMany PVC on `nfs-client`, two Kata pods mounting it with `subPath: a` and `subPath: b` at `/f8-logs`.
+  - Each Kata pod's file landed in its own folder. Kata mounts the subPath into the VM over virtiofs.
+  - Pod `a` couldn't see `b`: `/f8-logs/..` is the pod's own root, and `/f8-logs/../b/own` doesn't exist.
+  - A file that pod `a` wrote through the link `/root/.claude/projects → /f8-logs/projects` landed in `a/projects/`.
+  - A runc pod mounting the whole PVC read-only saw `a/` and `b/`, and couldn't write.
 - **Rejected:**
   - **a log PVC per step:** a reader would mount thousands of PVCs, or the NFS export again;
   - **mounting the export's folder from the sandbox** (an inline `nfs` volume): puts NFS into every sandbox's spec;
@@ -122,7 +127,7 @@ Readers don't change. None of this is built now.
 
 ## Risks / Trade-offs
 
-- **subPath under Kata hasn't been tried.** → The first task checks it on the pilot cluster before anything else is built: a Kata pod writes to its subPath folder and sees no other folder.
+- **subPath under Kata.** → Checked on the pilot cluster before anything else was built (D1): a Kata pod writes to its subPath folder and sees no other folder.
 - **One volume holds every step's logs.** A full or broken share stops every step. → That's the case today too: every PVC is on the same share.
 - **An installation needs a ReadWriteMany class.** → NFS, CephFS, EFS, Azure Files and Longhorn all provide one. Without one, D5's object-storage path applies.
 - **The log volume grows forever.** → About 0.5 MB per step, so 20Gi holds about 40,000 steps. Retention is ART-10.

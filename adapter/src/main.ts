@@ -2,7 +2,7 @@
 // f8-adapter: runs one agent step at a time inside the sandbox (openspec/specs/agent-adapter/spec.md).
 import { createServer } from 'node:http';
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { createInterface } from 'node:readline';
 import { promisify } from 'node:util';
@@ -11,7 +11,9 @@ import { ROOT, workdir } from './workdir.ts';
 
 interface AnswerRequest { answer: string }
 
-const HOME = `${ROOT}/home`, STATE = `${ROOT}/state`, PLUGIN = `${ROOT}/plugin`, CLONE = `${ROOT}/.clone`;
+const HOME = `${ROOT}/home`, PLUGIN = `${ROOT}/plugin`, CLONE = `${ROOT}/.clone`;
+// The step's folder of the session-log volume, /f8-logs (split-session-logs D2).
+const LOGS = `${ROOT}-logs`, STATE = `${LOGS}/state`;
 const exec = promisify(execFile);
 const git = (...args: string[]) => exec('git', ['-C', work!, ...args]);
 // shortcut: the token comes from the pod's Secret (sandbox spec), remove with #1.
@@ -20,9 +22,12 @@ const clone = (url: string, dir: string, ...cfg: string[]) =>
   exec('git', ['clone', '-c', `credential.helper=${cred}`, ...cfg, url, dir]);
 
 mkdirSync(STATE, { recursive: true });
-mkdirSync(HOME, { recursive: true });
+mkdirSync(`${LOGS}/projects`, { recursive: true });
+mkdirSync(`${HOME}/.claude`, { recursive: true });
+// Claude Code writes its sessions through the link, straight onto the log volume; the link is on the PVC, so a restart keeps it.
+if (!existsSync(`${HOME}/.claude/projects`)) symlinkSync(`${LOGS}/projects`, `${HOME}/.claude/projects`);
 const read = (f: string) => existsSync(`${STATE}/${f}`) ? readFileSync(`${STATE}/${f}`, 'utf8') : undefined;
-// State survives a pod restart on the same PVC (resume after suspend, retry after sandbox death).
+// State survives a pod restart: the step's next pod mounts the same log folder (resume after suspend, retry after sandbox death).
 let req: StepRequest | undefined = read('request.json') && JSON.parse(read('request.json')!);
 const events: StepEvent[] = (read('events.jsonl') ?? '').split('\n').filter(Boolean).map(l => JSON.parse(l));
 // The step's checkout, /f8/<owner>/<repo>, kept so a resumed session runs in the cwd it started in.

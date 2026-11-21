@@ -53,6 +53,7 @@ async function start(script: Record<string, unknown> = {}, cfg: object | null = 
       return { seq: k, at: '', stepId, type: 'exit', ...exit }; // the k-th exit in the step's log
     },
     deleteSandbox: async (...a: unknown[]) => { calls.push(['delete', a[1]]); },
+    deleteWorkspace: async (...a: unknown[]) => { calls.push(['delete-pvc', a[1]]); },
   };
   const id = ++n; // a queue per run, so a leftover workflow never reaches another test's mocks
   const worker = await Worker.create({ connection: env.nativeConnection, taskQueue: `test-${id}`, activities,

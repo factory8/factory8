@@ -1,7 +1,7 @@
 import { after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, writeFileSync } from 'node:fs';
 import { once } from 'node:events';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
@@ -20,6 +20,7 @@ writeFileSync(`${tmp}/bin/claude`, `#!/bin/sh
 prompt=$(cat)
 printf '%s' "$*" > "$FACTORY8_ROOT/args"; printf '%s' "$prompt" > "$FACTORY8_ROOT/prompt"; pwd > "$FACTORY8_ROOT/cwd"
 echo '{"type":"system","subtype":"init","session_id":"s1"}'
+mkdir -p "$HOME/.claude/projects/p" && echo '{}' >> "$HOME/.claude/projects/p/s1.jsonl"
 case "$*" in *--resume*) printf '{"type":"result","result":"resumed with %s"}\\n' "$prompt"; exit 0;; esac
 case "$prompt" in *ASK*) f8-ask "Which DB?" >/dev/null; exit 0;; esac
 case "$prompt" in *SLOW*) sleep 300 >/dev/null 2>&1 & echo $! > "$FACTORY8_ROOT/sleep.pid"; wait; exit 0;; esac
@@ -148,7 +149,7 @@ test('a repo whose default branch has .factory8/project.yaml is checked out at i
   assert.equal(exit.status, 'done');
   assert.equal(readFileSync(`${a.root}/cwd`, 'utf8').trim(), `${a.root}/acme/shop`);
   assert.ok(readFileSync(`${a.root}/args`, 'utf8').includes(`You are working in \`${a.root}/acme/shop\``));
-  assert.equal(readFileSync(`${a.root}/state/checkout`, 'utf8'), `${a.root}/acme/shop`);
+  assert.equal(readFileSync(`${a.root}-logs/state/checkout`, 'utf8'), `${a.root}/acme/shop`);
   assert.ok(!existsSync(`${a.root}/.clone`), 'the clone was moved to its name');
 });
 
@@ -165,6 +166,19 @@ test('a restarted adapter keeps the checkout from state/checkout, without clonin
   assert.deepEqual([done.status, done.summary], ['done', 'resumed with Postgres']);
   assert.equal(readFileSync(`${a.root}/cwd`, 'utf8').trim(), origin(a.root));
   assert.ok(existsSync(`${origin(a.root)}/kept`));
+  assert.equal(readlinkSync(`${a.root}/home/.claude/projects`), `${a.root}-logs/projects`, 'the restart kept the link');
+  assert.ok(!existsSync(`${a.root}/state`), 'state is on the log volume only');
+});
+
+test('session logs are on the log volume, Claude Code\'s through the link', async () => {
+  const a = await adapter(17082);
+  assert.ok(existsSync(`${a.root}-logs/state`));
+  assert.equal(readlinkSync(`${a.root}/home/.claude/projects`), `${a.root}-logs/projects`);
+  await a.post('/steps', step('run11', 'do the work'));
+  await a.untilExit('run11.build.1');
+  assert.equal(readFileSync(`${a.root}-logs/projects/p/s1.jsonl`, 'utf8'), '{}\n');
+  assert.equal(readFileSync(`${a.root}-logs/state/session`, 'utf8'), 's1');
+  assert.match(readFileSync(`${a.root}-logs/state/events.jsonl`, 'utf8'), /"status":"done"/);
 });
 
 test('a refused checkout name fails the step before the CLI starts', async () => {
