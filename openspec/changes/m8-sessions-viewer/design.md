@@ -6,7 +6,7 @@
 - a PRD change in this change (PLT-9, PLT-10, and PRJ-1 for `workdir`), written to `docs/PRD.md` on 2026-11-05 (D7);
 - the checkout at `/f8/<owner>/<repo>`, so sessions group by repo. A repo can pin the name with `workdir` in `.factory8/project.yaml`, and the owners `home`, `state` and `plugin` are refused (D8; revised 2026-11-05).
 
-The decisions below are proposals until the user agrees them. D1, D2 and D5 depend on what the spikes (tasks 8.1 and 8.2) find.
+The decisions below are proposals until the user agrees them. The viewer spike (8.1, 2026-11-20) picked agentsview (D1) and changed D2 and D3. D5 still depends on the Collie spike (8.2).
 
 ## Context
 
@@ -14,7 +14,7 @@ See proposal.md for why. What exists now:
 - **Where sessions live.** Each step has its own PVC, `factory8-<runId>-<stage>`, in `factory8-sandboxes`, mounted at `/f8` (M5 D2). The adapter sets `HOME=/f8/home` and runs the CLI in `/f8/work`, so a step's session is at `/f8/home/.claude/projects/-f8-work/<uuid>.jsonl`, with subagents under `<uuid>/subagents/`. The pod is deleted when the step ends or asks a question; the PVC stays (AGT-11).
 - **The share.** The `nfs-client` StorageClass uses `pathPattern: ${.PVC.namespace}/${.PVC.name}` and `onDelete: retain`, so every step's PVC is a directory `<export>/factory8-sandboxes/factory8-<runId>-<stage>/`. On the pilot cluster the NFS server is the node itself (`127.0.0.1:/exports/k3s`). Finished runs' PVCs are deleted by hand (ART-10 is Phase 2).
 - **Every session has the same cwd, `/f8/work`** (the adapter's `WORK` constant). Claude Code files a session under its encoded cwd (`-f8-work`), and viewers that group by the transcript's `cwd` put every step of every repo in one project, "work". D8 changes this.
-- **A ship step's first prompt names its stage and run:** `/factory8:<stage> <issue> run=<runId> …` (`command()` in `worker/src/results.ts`). Viewers title a session by its first prompt.
+- **A ship step's first prompt names its stage and run:** `/factory8:<stage> <issue> run=<runId> …` (`command()` in `worker/src/results.ts`). agentsview titles a session by its first prompt (D1).
 - **Answers.** The ship run waits on the `answer` signal (one string) and answers the `state` query, whose `question` is set while it waits (M6 D10). `f8 answer` checks `state.question`, then signals. The handler pushes every signal onto a queue, and `ask()` takes the first, so a second answer to one question would answer the next one.
 - **The user's Collie** runs in the pilot cluster as its own Deployment (namespace `collie`, with a Tailscale sidecar). It is not part of this repo. Collie attaches durable programs with `collie durable attach <name> --url https://… --token-env <VAR>` (wire v1, `bridge/mux/durable/WIRE.md`). Over a URL the wire must be HTTPS, except to localhost, and Collie polls every 2 s while a phone watches, every 10 s otherwise.
 - **Exposure today.** The Temporal UI is served at `temporal.libre.pod` through a Traefik `IngressRoute` (`deploy/web.yaml`). Secrets come from OpenBao through ExternalSecrets (`deploy/eso.yaml`).
@@ -35,32 +35,46 @@ See proposal.md for why. What exists now:
 
 ## Decisions
 
-### D1. The viewer: agentsview or claude-code-history-viewer, decided by the spike
+### D1. The viewer: agentsview, picked by the spike
 
-Both read the same farm (D2), both render thinking, tool calls with results and subagent sessions, both search across sessions, and both read Codex and pi for later. With the checkout per repo (D8), both group sessions by repo from the transcript's `cwd`: a project name is no longer a reason to pick one.
+Both candidates read the same farm (D2), render thinking, tool calls with results and subagent sessions, search across sessions, and read Codex and pi for later.
+- **[kenn-io/agentsview](https://github.com/kenn-io/agentsview)** (MIT, 6.4k stars, v0.46.1 of 2026-10-23): the more used and more active project; a published image; a bearer token by default in a container; a SQLite index with full-text search and cost dashboards, which scales as kept runs pile up.
+- **[jhlee0409/claude-code-history-viewer](https://github.com/jhlee0409/claude-code-history-viewer)** (`cchv-server`, MIT, 2.3k stars, v1.32.2 of 2026-10-20): it rereads projects on each request, has an explicit `--read-only` and a phone layout with a bottom tab bar; no published image and no index.
 
-- **[kenn-io/agentsview](https://github.com/kenn-io/agentsview)** (MIT, 6.4k stars, v0.46.1 of 2026-10-23):
-  - **For:** the more used and more active project; a published image; a bearer token by default in a container; a SQLite index with full-text search and cost dashboards, which scales as kept runs pile up; a deep link per session (`/sessions/<id>`).
-  - **Against:**
-    - its live view relies on inotify, and inotify misses writes made by other NFS clients. It falls back to a 2-minute poll for symlinked roots, or a full sync every 15 min, so a running step can look stale (D3);
-    - it has no read-only switch: Resume and Fork can launch `claude` on the server. That is safe only because the image holds no `claude` binary and `[terminal] mode = "clipboard"` is set;
-    - it sends telemetry by default (`AGENTSVIEW_TELEMETRY_ENABLED=0`, `AGENTSVIEW_DISABLE_UPDATE_CHECK=1`);
-    - its phone layout is unverified.
-- **[jhlee0409/claude-code-history-viewer](https://github.com/jhlee0409/claude-code-history-viewer)** (`cchv-server`, MIT, 2.3k stars, v1.32.2 of 2026-10-20):
-  - **For:**
-    - it rereads projects on each request, so a reload shows a running step's latest turns;
-    - an explicit `--read-only`, and no spawn calls in its server's request handlers (grepped);
-    - a phone layout (390 px, bottom tab bar);
-    - a deep link per session (`?session=<id>`), and no telemetry found;
-  - **Against:** a smaller project; no published image (we build one from its release tarball, D4); no index, so search rescans files.
+**The rule, set before the spike:** pick agentsview if a running step's new turns show within 2 minutes and its session pages read at phone width; otherwise pick cchv.
 
-**Proposed:** the spike (8.1) runs both on the same farm, over the same kept runs. Pick **agentsview** if it passes two checks:
-- a running step's new turns show within 2 minutes;
-- its session pages read at phone width.
+**The spike (8.1, 2026-11-20).** Both ran in one pod on the pilot cluster, over one farm built from a copy of the share's `factory8-sandboxes`: 14 kept steps, among them every step of the finished ship run `fpi80t`. In one copied session, `cwd` was rewritten to `/f8/factory8/factory8` with `sed`, to stand in for D8. Lines were appended from two other NFS clients: a Kata pod, and a pod with its own NFS mount (`nosharecache`).
+- **Grouping and labels:**
+  - agentsview names a project by the last segment of `cwd`, and merges PVCs under it: the rewritten session is under `factory8`, the others under `work`. It drops the owner, so `a/shop` and `b/shop` would share a project. A session's title is its first prompt, `/factory8:design 19 run=fpi80t`. At 390 px the list cuts it after the stage (`/factory8:review 19 run=f…`); the session page shows it whole.
+  - cchv makes a project of each farm link, so one per PVC: two named `factory8` and nine named `work`, all under "Unavailable locations", since the `cwd` doesn't exist in its pod. Nothing merges them by repo. A session's title is its summary or its last reply. The first prompt is a collapsed `/factory8:design` block, and `run=fpi80t` shows only when it's expanded.
+- **Rendering:** both show thinking (collapsed until opened), each tool call with its input and result, and the subagent's session: agentsview inline ("Subagent session · 3 messages", with a link), cchv as a "SubAgent Sessions" link at the top.
+- **Freshness,** for a line appended from another NFS client:
+  - cchv shows it on the next request, under 2 s, and lists a new step within the farm's 30-s pass (24 s).
+  - agentsview on its own showed neither within 20 minutes. inotify misses the remote writes, its 2-minute poll doesn't cover the farm, and its 15-minute reconcile ran with `targets=0`.
+  - An open agentsview session page checks its file every 1.5 s and syncs it about 5 s after a change: 11 s in the spike, with the turns it had missed. A page opened after a write shows the old turns until the file changes again.
+  - `POST /api/v1/sync`, its ↻ button, catches everything up in 0.3 s. With the farm calling it after each pass (D2), an appended line showed in 4 s and a new step in 5 s.
+- **Phone, 390 px:**
+  - agentsview: no sideways scroll. The header is crowded and its search box overlaps it, but sessions read.
+  - cchv: the session page lays out 459 px wide, because its toolbar (Content | Tool ID) doesn't wrap. Chrome shrinks the page to fit and clips the settings button; Safari would scroll it sideways. Its project explorer fits.
+- **Token and link:**
+  - agentsview: the page shell loads without the token; every API call needs it (401). On the first visit a form asks for it once, and the browser keeps it in local storage; a URL can't carry it. A session's link is `/sessions/<id>`, and it still opens after the token form.
+  - cchv: `/?token=<token>` once sets a cookie; its sign-in page also takes the token. A session's link is `/?session=<id>`.
+- **Read-only:** `find <copy> -newer <stamp>` printed nothing after:
+  - every agentsview action on a session or its data: star, rename, labels, pin, parent, resume, open, publish, sync, delete, restore, permanent delete, empty trash, strip images, compact, secrets scan and resync;
+  - cchv's 25 changing routes, which `--read-only` refuses with 403;
+  - a walk of both UIs' pages.
 
-Otherwise pick **cchv**. Run that way, agentsview is effectively read-only, because the pod has no agent CLI (spec "The viewer never runs an agent"). D4 and D5 are written for either; where they differ, the spike's pick decides.
+  agentsview keeps such changes in its own database: a session deleted there stays hidden after a resync, though its file is untouched. Its import, push, embeddings, insights and settings routes weren't called; the read-only mount covers the share either way.
+- **No agent CLI** in either pod. agentsview's Resume answers with `claude --resume <id> …` to copy, and reports that it found no terminal.
+
+**Picked: agentsview.** It passes both checks. A running step's new turns show in 11 s on its open session page, and within one farm pass anywhere (D2, D3). Its session pages read at 390 px. cchv's session page doesn't fit 390 px, and cchv also misses the spec's grouping by repo and its label.
+
+What comes with agentsview:
+- **It has no read-only switch.** A token holder can change its database and its settings. One setting is a custom terminal command (`POST /api/v1/config/terminal`), which Resume then runs in the pod. So whoever holds the token can run commands in the viewer's pod. The share is read-only there and the pod has no ServiceAccount token, but the cluster network, Temporal included, is in reach (Risks).
+- **Telemetry and the update check are on by default.** D4 turns both off. The spike's log shows no outbound call, but no packet capture was taken.
 
 - **Rejected:**
+  - **cchv:** for the spike's findings above. Its release binary is also the desktop build, linked to WebKitGTK and GTK even for `--serve`: a 648 MB image. What it had over agentsview, a reread on each request, the farm's sync call gives agentsview (D3);
   - **building our own:** the user prefers a third-party tool, and these already render the format;
   - **[siteboon/claudecodeui](https://github.com/siteboon/claudecodeui)** (14k stars): AGPL-3.0, built around chatting through an agent in its own process, with no read-only mode;
   - **[d-kimuson/claude-code-viewer](https://github.com/d-kimuson/claude-code-viewer)**: starts and resumes sessions through the Agent SDK in its own process (opt-in), Claude only, no image;
@@ -68,58 +82,74 @@ Otherwise pick **cchv**. Run that way, agentsview is effectively read-only, beca
   - **[vakovalskii/codbash](https://github.com/vakovalskii/codbash)** (the user's example): text-only details cut to 2,000 characters, no thinking, a hard-coded home directory, and a browser terminal that starts local shells;
   - **[daaain/claude-code-log](https://github.com/daaain/claude-code-log)**: static HTML that it writes next to the transcripts (our share is read-only to it), and a loopback-only server;
   - **[slopus/happy](https://github.com/slopus/happy) and Claude Code Remote Control:** relays to a *live* session, which don't read past transcripts. Remote Control also needs a claude.ai login and refuses a custom `ANTHROPIC_BASE_URL` (AGT-10);
-  - **OpenTelemetry or Langfuse:** Claude Code's telemetry leaves out thinking and tool blocks, and Langfuse would need a hook in every sandbox and a heavy server.
+  - **OpenTelemetry or [Langfuse](https://github.com/langfuse/langfuse)** (researched on 2026-11-20, not spiked):
+    - Claude Code's own telemetry never sends thinking.
+    - Langfuse reads no files. Sessions would reach it through its Claude Code plugin, which is a hook in every sandbox holding Langfuse's keys, or through a reader of the share that we would write.
+    - Its server is a web app, a worker, Postgres, ClickHouse (through an operator in its chart), Valkey and S3.
+    - Its UI has its own logins, not a token.
+    - **Kept for later:** when we track cost and token spend across runs, Langfuse is the first candidate. A reader of the transcripts would bring the thinking along.
 
 ### D2. Sessions reach the viewer: one read-only mount and a link farm
 
 **Proposed:**
 - **The mount.** The viewer's pod mounts the share's `factory8-sandboxes` directory once, read-only, as an inline `nfs` volume at `/sessions`. On the pilot cluster that is server `127.0.0.1`, path `/exports/k3s/factory8-sandboxes`; another installation sets its own.
-- **The farm.** A sidecar, `farm`, runs a shell loop every 30 s, sharing an `emptyDir` at `/farm` with the viewer, whose `HOME` is `/farm`:
+- **The farm.** A sidecar, `farm`, shares an `emptyDir` at `/farm` with the viewer, whose projects directory is `/farm/.claude/projects`. Every 30 s it links each PVC's project directory, removes links to deleted PVCs, and asks the viewer to sync (D3):
 
   ```sh
-  for d in /sessions/*/home/.claude/projects/*/; do
-    pvc=${d#/sessions/}; pvc=${pvc%%/*}
-    ln -sfn "$d" "/farm/.claude/projects/$pvc"
+  mkdir -p /farm/.claude/projects
+  while :; do
+    for d in /sessions/*/home/.claude/projects/*/; do
+      [ -d "$d" ] || continue
+      pvc=${d#/sessions/}; pvc=${pvc%%/*}
+      [ -L "/farm/.claude/projects/$pvc" ] || ln -s "$d" "/farm/.claude/projects/$pvc"
+    done
+    for l in /farm/.claude/projects/*; do [ -e "$l" ] || rm -f "$l"; done # a PVC deleted by hand
+    wget -q -O /dev/null --header "Authorization: Bearer $TOKEN" --post-data '' http://127.0.0.1:8080/api/v1/sync || true
+    sleep 30
   done
-  for l in /farm/.claude/projects/*; do [ -e "$l" ] || rm "$l"; done # a PVC deleted by hand
   ```
 
-  The project-level links are the depth both viewers follow; session files under them are regular files. Each link is named after its PVC, so names never clash.
+  - Each link is named after its PVC, so names never clash. agentsview follows a linked directory, and the session files under it are regular files. Links to the session files themselves don't work: both viewers skip a linked file (spike 8.1).
+  - The share stays outside `/farm/.claude/projects`. agentsview's watcher walks every real directory under that path, which here would be every kept checkout; with only links there, it watches one directory.
+  - The sync skips unchanged files: 0.3 s over 14 sessions. *shortcut: each sync stats every kept session file over NFS; call it less often when kept runs reach the thousands.*
 - **The labels.**
-  - The project comes from the transcript's `cwd`, `/f8/<owner>/<repo>` (D8), so every step of a repo lands in that repo's project.
+  - The project comes from the transcript's `cwd`. agentsview names it by the last segment, the `<repo>` of `/f8/<owner>/<repo>` (D8), so every step of a repo lands in that repo's project (D1).
   - The run and the stage come from the session's title, its first prompt: `/factory8:<stage> <issue> run=<runId> …`.
-  - M5's SDLC run doesn't name its run in the prompt; its sessions are found by time. The spike confirms both labels in each viewer.
+  - M5's SDLC run doesn't name its run in the prompt; its sessions are found by time.
 - **Rejected:**
   - **mounting each PVC into the viewer:** every new step would mean a pod restart and Kubernetes API access for the viewer;
   - **sandboxes writing sessions to one shared volume:** breaks a step's isolation (DEP-11) and the "one PVC per step" rule (M5 D2);
-  - **a `hostPath` of the export's backing directory:** would only work where the NFS server is the node, and the farm already fixes discovery.
+  - **a `hostPath` of the export's backing directory:** would only work where the NFS server is the node, and the farm already fixes discovery;
+  - **the share mounted inside the projects directory** (at `.share`, with relative links): cchv needed it, because it refuses any path that resolves outside `~/.claude/projects`. agentsview would then watch the whole share.
 
-### D3. Freshness: a reload, no live push
+### D3. Freshness: the farm asks for a sync, no live push
 
-**Proposed:** no watcher of ours. inotify doesn't see writes that other NFS clients make (the sandbox pods), so no viewer's live mode can be relied on here.
-- cchv rereads on each request, so a reload shows a running step's latest turns.
-- agentsview relies on its 2-minute poll or its 15-minute sync. That is the check in D1.
-- The farm adds a new step within 30 s.
+**Proposed:** no watcher of ours. inotify doesn't see writes that other NFS clients make (the sandbox pods), and agentsview's own fallbacks don't reach the farm (D1). Instead:
+- the farm calls agentsview's sync after each 30-s pass (D2), so a new step, or a running step's new turns, show within about 30 s. The spike measured 4 s and 5 s;
+- an open session page also syncs its own file about 5 s after it changes (11 s in the spike), so a running step's page updates without a reload;
+- the ↻ button syncs at once.
 
 That covers the stuck-step case in the spec. M2's `f8 watch` stays the live view of progress.
-- **Rejected:** polling the share and pushing to the browser: that is building a viewer feature for a nice-to-have.
+- **Rejected:**
+  - **polling the share and pushing to the browser:** that is building a viewer feature for a nice-to-have;
+  - **the ↻ button alone:** a new step would stay hidden until someone presses it, and the spec asks for a minute.
 
 ### D4. The viewer's image and Deployment
 
 **Proposed:**
-- **The image.**
-  - For cchv: `packages.viewer-image` in `flake.nix`, a `streamLayeredImage` with `cchv-server` from the pinned release tarball (`fetchzip` with its hash; `autoPatchelfHook` if the binary isn't static).
-  - For agentsview: its published image, pinned by digest.
-  - Either way, the `farm` container is a pinned `busybox` image.
+- **The images:** agentsview's published image, pinned by digest (`ghcr.io/kenn-io/agentsview:0.46.1@sha256:f43a5fe63c83dc4062f47b731d13f5ecc66131763112b651f3c78de7edc2c395`), and a pinned `busybox` for the `farm` container.
 - **`deploy/viewer.yaml`:**
   - a Deployment `factory8-viewer` in `factory8`, with two containers:
-    - `viewer`: `cchv-server --serve --read-only --host 0.0.0.0 --port 8080` with `HOME=/farm`; or agentsview with `CLAUDE_PROJECTS_DIR=/farm/.claude/projects`, the telemetry and update-check switches off, and clipboard terminal mode. The token comes from the Secret;
-    - `farm`: the loop in D2;
-  - the `nfs` volume read-only at `/sessions`, and an `emptyDir` at `/farm`;
+    - `viewer`: agentsview on port 8080, with `CLAUDE_PROJECTS_DIR=/farm/.claude/projects`, `AGENTSVIEW_TELEMETRY_ENABLED=0`, `AGENTSVIEW_DISABLE_UPDATE_CHECK=1`, and `AGENTSVIEW_AUTH_TOKEN` from the Secret. Its database is in an `emptyDir` at `/data`, rebuilt from the share when it starts (0.4 s for 14 sessions);
+    - `farm`: the loop in D2, with the same token as `TOKEN`;
+  - the `nfs` volume read-only at `/sessions` in both containers, and an `emptyDir` at `/farm`, read-only in `viewer`;
   - no ServiceAccount token (`automountServiceAccountToken: false`) and no other Secret;
   - a Service, and an IngressRoute at `factory8-sessions.libre.pod`, modelled on `deploy/web.yaml`;
   - an ExternalSecret `factory8-viewer` from OpenBao key `apps/factory8-viewer` (*user* sets the token).
-- **Rejected:** cchv's upstream Dockerfile: it builds from source. Our images are Nix-built and imported by hand (M1 D4), and a release binary needs no build.
+- Resume's terminal mode stays at its default, `auto`. The image has no terminal, so Resume only answers with the command (D1).
+- **Rejected:**
+  - **a Nix-built image:** agentsview needs a Go and a Node build; its published image, pinned by digest, is the same bytes every time;
+  - **a PVC for its database:** the index rebuilds from the share in under a second. Stars, labels and renames are lost on a restart, which is fine for a read-only viewer.
 
 ### D5. The Collie inbox
 
@@ -135,7 +165,7 @@ That covers the stuck-step case in the spec. M2's `f8 watch` stays the live view
   - The question is seeded as a `text` ask (`seedAsk`) with a 2000-character limit. Its title is `<runId> · <stage>` and its notification line is the question cut to fit.
   - Its body ends with a link to the waiting step's session in the viewer. The base URL is `FACTORY8_VIEWER_URL`.
   - The session ID comes from `factory8-<runId>-<stage>/state/session` on the share, which the inbox mounts read-only, as the viewer does (D2). The adapter writes that file when the session starts.
-  - The link's form depends on the viewer: `/sessions/<id>` for agentsview, `?session=<id>` for cchv.
+  - The link is `<FACTORY8_VIEWER_URL>/sessions/<id>`, agentsview's form. On a phone that doesn't hold the token yet, it opens the token form first, then the session (D1).
   - `askId` is a hash of run ID, stage and question, so the same question keeps its ask, and its single push, across inbox restarts.
 - **The answer.** The ask's sink refuses a reply that is blank once trimmed, as `f8 answer` does, and leaves the ask open. Otherwise it re-queries `state` and checks two things:
   - if `question` is still that question, it signals `answer` with the text and replies `taken`;
@@ -201,8 +231,9 @@ That covers the stuck-step case in the spec. M2's `f8 watch` stays the live view
 ## Risks / Trade-offs
 
 - **Transcripts can hold secrets.** A tool result may print an environment variable, for example `GH_TOKEN` (#1). Anyone who holds the viewer's token reads them. → The viewer is token-gated and reachable on the cluster's network and the tailnet only. The gap goes under "Not in the POC" (SSO, PLT-7), and #1 removes the secrets from sandboxes.
-- **Both third-party pieces are small projects, and Collie's wire is experimental.** → Pin both: the viewer by its release hash or image digest, the SDK at an exact version. Each piece only reads the share or talks to Temporal, so replacing one touches no workflow. `f8 answer` always works.
-- **Labels rest on viewer behaviour we haven't run:** the project from `cwd`, and the title from the first prompt. → Spike 8.1 checks both in each viewer before anything is deployed.
+- **Whoever holds the viewer's token can run commands in its pod,** through agentsview's custom terminal (D1). → The pod has the share read-only, no ServiceAccount token and no other Secret, but it reaches the cluster network, Temporal included. The gap goes under "Not in the POC" with the token-only gate (8.0). A NetworkPolicy that denies the pod's egress closes it later.
+- **Both third-party pieces are small projects, and Collie's wire is experimental.** → Pin both: the viewer by its image digest, the SDK at an exact version. Each piece only reads the share or talks to Temporal, so replacing one touches no workflow. `f8 answer` always works.
+- **agentsview names a project by the repo alone.** Two repos of the same name under different owners share a project. → Rare within one installation; one of them can pin a different `workdir` (D8).
 - **`project.yaml` is read with a one-line match, not a YAML parser.** A `workdir` written in another YAML form, such as a flow mapping or a quoted key, isn't seen, and the path falls back to the URL. → Our example shows the one form, and the shortcut in D8 names the upgrade.
 - **A step waiting on a question across the adapter change** would resume in a fresh checkout at the new path. The old session is filed under `-f8-work`, so `--resume` fails and the adapter falls back to a fresh session with the handoff note. Any uncommitted work in `/f8/work` is left behind. → Deploy the new sandbox image when no run waits on a question (Migration Plan).
 - **Collie may not trust the cluster CA.** → Spike 8.2. The fallback is the localhost sidecar in D5.
@@ -222,4 +253,4 @@ Rollback: delete the two Deployments and detach the inbox in Collie. Nothing els
 
 ## Open Questions
 
-- Codex and pi sessions: when a sandbox first runs Codex (AGT-2, Phase 1), the farm also links `/sessions/*/home/.codex/sessions` and the viewer gets `CODEX_HOME`. This is deferred because no sandbox writes them yet.
+- Codex and pi sessions: when a sandbox first runs Codex (AGT-2, Phase 1), the farm also links `/sessions/*/home/.codex/sessions` and the viewer gets `CODEX_SESSIONS_DIR`. This is deferred because no sandbox writes them yet.

@@ -10,10 +10,10 @@
 - [ ] 8.0 Docs (design D7; after none). Done when:
   - (done 2026-11-05) the PRD has PLT-9, PLT-10, the §4, PLT-5, AGT-11, PRJ-1, §8 and §12 edits, and a §0 row, all approved by the user;
   - (done 2026-11-05) `docs/site/prd.html` and `architecture.html` match the PRD, and `arch.d2` shows the viewer and the inbox, re-rendered to `arch.svg`;
-  - `docs/plans/poc.md` has the M8 row (after M6). Under "Not in the POC" it lists the viewer and the inbox gated by a token each, not by SSO (PLT-7), and transcripts readable by anyone who holds the viewer's token (#1);
+  - `docs/plans/poc.md` has the M8 row (after M6). Under "Not in the POC" it lists the viewer and the inbox gated by a token each, not by SSO (PLT-7), transcripts readable by anyone who holds the viewer's token (#1), and commands that a holder of the viewer's token can run in its pod (agentsview's custom terminal, design D1);
   - `CLAUDE.md` lists `inbox/`, the viewer and inbox images, and the checkout at `/f8/<owner>/<repo>` with `workdir` in `.factory8/project.yaml`;
   - the memory file notes M8.
-- [ ] 8.1 Viewer spike (by hand; design D1–D3; after none). Run agentsview and `cchv-server` v1.32.2 (`--serve --read-only`) on one farm built by D2's loop. The farm points at a copy of the share's `factory8-sandboxes` that holds at least one finished ship run. In one copied session, rewrite `cwd` to `/f8/factory8/factory8` with `sed` on the copy, to stand in for D8 before the adapter changes. Done when D1 records, for each viewer:
+- [x] 8.1 Viewer spike (by hand; design D1–D3; after none). Run agentsview and `cchv-server` v1.32.2 (`--serve --read-only`) on one farm built by D2's loop. The farm points at a copy of the share's `factory8-sandboxes` that holds at least one finished ship run. In one copied session, rewrite `cwd` to `/f8/factory8/factory8` with `sed` on the copy, to stand in for D8 before the adapter changes. Done when D1 records, for each viewer:
   - whether sessions group by repo, and whether each shows its run and stage;
   - that thinking, tool calls with their results, and subagent sessions render;
   - how long a line appended to a session file on the NFS mount takes to show, measured by appending from another NFS client;

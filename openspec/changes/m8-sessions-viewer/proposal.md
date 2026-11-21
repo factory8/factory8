@@ -14,7 +14,7 @@ A run that waits on a question shows the question only to whoever is watching `f
   - By default the name comes from the repo URL. A repo can pin it with `workdir: <owner>/<repo>` in `.factory8/project.yaml`, so a move to another owner or GitLab group keeps its sessions together. This is `project.yaml`'s first key (PRJ-1). factory8/factory8 commits one, with comments, as the example.
   - Owners named `home`, `state` or `plugin` are refused: their checkout would land in the sandbox's own directories.
 - **A session viewer: a read-only third-party web UI over every step's session.**
-  - Candidates: [claude-code-history-viewer](https://github.com/jhlee0409/claude-code-history-viewer) (`cchv-server --read-only`) and [agentsview](https://github.com/kenn-io/agentsview). A spike runs both on real sessions, and the result decides between them (design D1).
+  - [agentsview](https://github.com/kenn-io/agentsview). A spike ran it and [claude-code-history-viewer](https://github.com/jhlee0409/claude-code-history-viewer) on real sessions, and picked agentsview (design D1).
   - It reads the sandbox PVCs straight off the share, read-only, so a new step's session shows up without anything being copied or uploaded.
   - It shows thinking, tool calls with their results, and subagent transcripts, grouped by repo and labelled by run and stage. It has a phone layout, and a bearer token gates it.
   - It never starts or resumes an agent: agents run only in sandboxes (SBX-1, invariant 4). To take over a session, an engineer copies it into a terminal and runs `claude --resume`, as AGT-11 already says.
@@ -24,7 +24,7 @@ A run that waits on a question shows the question only to whoever is watching `f
   - A reply in Collie becomes the run's `answer` signal, as `f8 answer` sends it today. A question answered somewhere else, or a run that ends, closes the ask.
   - `f8 answer` keeps working, and nothing requires Collie (invariant 14).
 - **A run takes one answer per question.** Once two channels can answer, a second answer to the same question would sit in the queue and be taken as the answer to the run's *next* question. The ship run drops an `answer` that arrives while no question waits, or after its question already has an answer.
-- **Deploy:** two Deployments in `deploy/` (viewer and inbox), each with a Service, a Traefik route and a token Secret from OpenBao. Both images are Nix-built and imported by hand, like the worker's.
+- **Deploy:** two Deployments in `deploy/` (viewer and inbox), each with a Service, a Traefik route and a token Secret from OpenBao. The inbox's image is Nix-built and imported by hand, like the worker's; the viewer runs agentsview's published image, pinned by digest.
 - **PRD (approved by the user on 2026-11-05):**
   - new PLT-9 (session viewer) and PLT-10 (phone inbox);
   - §4's "no web UI" non-goal and PLT-5 make room for a third-party read-only viewer;
@@ -58,7 +58,7 @@ Not in M8:
   - a new workspace, `inbox/` (`src/main.ts` plus tests), which depends on `@temporalio/client` and `@colliepwa/durable-sdk` (experimental, pinned);
   - `worker/src/flow.ts`: the `answer` handler's guard, plus a test;
   - root `package.json` workspaces.
-- **Nix:** `flake.nix` gains `viewer-image`, from the pinned `cchv-server` release tarball and its checksum, and `inbox-image`, from the same `app` as the worker's image.
+- **Nix:** `flake.nix` gains `inbox-image`, from the same `app` as the worker's image. The viewer needs no Nix build.
 - **Deploy:**
   - `deploy/viewer.yaml` has the viewer, a link-farm sidecar, the share mounted read-only, a Service, an IngressRoute at `factory8-sessions.libre.pod` and an ExternalSecret for its token;
   - `deploy/inbox.yaml` has the inbox (with the share mounted read-only, for each step's session ID), a Service, an IngressRoute at `factory8-inbox.libre.pod` and an ExternalSecret for its token;
