@@ -1,5 +1,5 @@
 # The Temporal worker (M1 design D2, D4, D8). It manages sandboxes in factory8-sandboxes and holds no GitHub token.
-# Both image tags are Nix hashes: after `nix build .#worker-image` or `.#sandbox-image`, import the image and update its tag here.
+# Image tags are Nix hashes: after `nix build .#worker-image`, import the image and update its tag here; each repo's sandbox tag (`.#sandbox-image`) goes in the Deployment that serves the repo.
 # Upgrading a cluster installed with the old f8-* names: follow deploy/rename-cutover.md first.
 apiVersion: v1
 kind: ServiceAccount
