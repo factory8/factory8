@@ -8,11 +8,13 @@
 
 The decisions below are proposals until the user agrees them. The viewer spike (8.1, 2026-11-20) picked agentsview (D1) and changed D2 and D3. D5 still depends on the Collie spike (8.2).
 
+**Revised 2026-11-21 for split-session-logs:** sessions are now kept on one session-log volume, not on each step's PVC, so the viewer (D2, D4) and the inbox (D5) mount that volume instead of the NFS export, and run in its namespace. The spike (D1) ran on the old layout; nothing it measured depends on where the files come from.
+
 ## Context
 
 See proposal.md for why. What exists now:
-- **Where sessions live.** Each step has its own PVC, `factory8-<runId>-<stage>`, in `factory8-sandboxes`, mounted at `/f8` (M5 D2). The adapter sets `HOME=/f8/home` and runs the CLI in `/f8/work`, so a step's session is at `/f8/home/.claude/projects/-f8-work/<uuid>.jsonl`, with subagents under `<uuid>/subagents/`. The pod is deleted when the step ends or asks a question; the PVC stays (AGT-11).
-- **The share.** The `nfs-client` StorageClass uses `pathPattern: ${.PVC.namespace}/${.PVC.name}` and `onDelete: retain`, so every step's PVC is a directory `<export>/factory8-sandboxes/factory8-<runId>-<stage>/`. On the pilot cluster the NFS server is the node itself (`127.0.0.1:/exports/k3s`). Finished runs' PVCs are deleted by hand (ART-10 is Phase 2).
+- **Where sessions live** (split-session-logs). Each step writes its logs to its own folder, `<runId>-<stage>`, of one ReadWriteMany PVC, `factory8-sessions`, in `factory8-sandboxes`, mounted at `/f8-logs`. Claude Code's session is at `<runId>-<stage>/projects/<encoded-cwd>/<uuid>.jsonl`, with subagents under `<uuid>/subagents/`, and the adapter's state, `session` included, under `<runId>-<stage>/state/`. The step's own PVC, mounted at `/f8`, is deleted when the step ends.
+- **Before that,** sessions stayed on each step's PVC, which the share kept as `<export>/factory8-sandboxes/factory8-<runId>-<stage>/`, and this design first read them through an `nfs` volume of the export. The spike (D1) ran on that layout. On the pilot cluster the log volume is on the same NFS provisioner, but readers depend only on the PVC's name and its folder tree.
 - **Every session has the same cwd, `/f8/work`** (the adapter's `WORK` constant). Claude Code files a session under its encoded cwd (`-f8-work`), and viewers that group by the transcript's `cwd` put every step of every repo in one project, "work". D8 changes this.
 - **A ship step's first prompt names its stage and run:** `/factory8:<stage> <issue> run=<runId> …` (`command()` in `worker/src/results.ts`). agentsview titles a session by its first prompt (D1).
 - **Answers.** The ship run waits on the `answer` signal (one string) and answers the `state` query, whose `question` is set while it waits (M6 D10). `f8 answer` checks `state.question`, then signals. The handler pushes every signal onto a queue, and `ask()` takes the first, so a second answer to one question would answer the next one.
@@ -23,7 +25,7 @@ See proposal.md for why. What exists now:
 ## Goals / Non-Goals
 
 **Goals:**
-- the only change in the sandbox is where the checkout lives (D8). Both features read what is already on the step's PVC;
+- the only change in the sandbox is where the checkout lives (D8). Both features read what is already on the session-log volume;
 - one mount shows every run, with no Kubernetes API access for the viewer;
 - each piece can be swapped (another viewer, another phone channel) without touching the others or the workflows;
 - the one workflow change is a guard that holds for every answer channel.
@@ -80,37 +82,37 @@ What comes with agentsview:
   - **[d-kimuson/claude-code-viewer](https://github.com/d-kimuson/claude-code-viewer)**: starts and resumes sessions through the Agent SDK in its own process (opt-in), Claude only, no image;
   - **[matt1398/claude-devtools](https://github.com/matt1398/claude-devtools)**: the deepest Claude rendering (context attribution per turn), but it has no auth and is Claude only. Worth a look again if auditing context use becomes the need;
   - **[vakovalskii/codbash](https://github.com/vakovalskii/codbash)** (the user's example): text-only details cut to 2,000 characters, no thinking, a hard-coded home directory, and a browser terminal that starts local shells;
-  - **[daaain/claude-code-log](https://github.com/daaain/claude-code-log)**: static HTML that it writes next to the transcripts (our share is read-only to it), and a loopback-only server;
+  - **[daaain/claude-code-log](https://github.com/daaain/claude-code-log)**: static HTML that it writes next to the transcripts (our volume is read-only to it), and a loopback-only server;
   - **[slopus/happy](https://github.com/slopus/happy) and Claude Code Remote Control:** relays to a *live* session, which don't read past transcripts. Remote Control also needs a claude.ai login and refuses a custom `ANTHROPIC_BASE_URL` (AGT-10);
   - **OpenTelemetry or [Langfuse](https://github.com/langfuse/langfuse)** (researched on 2026-11-20, not spiked):
     - Claude Code's own telemetry never sends thinking.
-    - Langfuse reads no files. Sessions would reach it through its Claude Code plugin, which is a hook in every sandbox holding Langfuse's keys, or through a reader of the share that we would write.
+    - Langfuse reads no files. Sessions would reach it through its Claude Code plugin, which is a hook in every sandbox holding Langfuse's keys, or through a reader of the log volume that we would write.
     - Its server is a web app, a worker, Postgres, ClickHouse (through an operator in its chart), Valkey and S3.
     - Its UI has its own logins, not a token.
     - **Kept for later:** when we track cost and token spend across runs, Langfuse is the first candidate. A reader of the transcripts would bring the thinking along.
 
 ### D2. Sessions reach the viewer: one read-only mount and a link farm
 
-**Proposed:**
-- **The mount.** The viewer's pod mounts the share's `factory8-sandboxes` directory once, read-only, as an inline `nfs` volume at `/sessions`. On the pilot cluster that is server `127.0.0.1`, path `/exports/k3s/factory8-sandboxes`; another installation sets its own.
-- **The farm.** A sidecar, `farm`, shares an `emptyDir` at `/farm` with the viewer, whose projects directory is `/farm/.claude/projects`. Every 30 s it links each PVC's project directory, removes links to deleted PVCs, and asks the viewer to sync (D3):
+**Proposed** (revised 2026-11-21 for split-session-logs):
+- **The mount.** The viewer's pod mounts the session-log volume, the PVC `factory8-sessions`, read-only at `/sessions`. The pod runs in `factory8-sandboxes`, because a pod mounts only PVCs in its own namespace. Nothing in it names NFS, so another installation needs no change.
+- **The farm.** A sidecar, `farm`, shares an `emptyDir` at `/farm` with the viewer, whose projects directory is `/farm/.claude/projects`. Every 30 s it links each step's project directory, removes links to deleted step folders, and asks the viewer to sync (D3):
 
   ```sh
   mkdir -p /farm/.claude/projects
   while :; do
-    for d in /sessions/*/home/.claude/projects/*/; do
+    for d in /sessions/*/projects/*/; do
       [ -d "$d" ] || continue
-      pvc=${d#/sessions/}; pvc=${pvc%%/*}
-      [ -L "/farm/.claude/projects/$pvc" ] || ln -s "$d" "/farm/.claude/projects/$pvc"
+      step=${d#/sessions/}; step=${step%%/*}
+      [ -L "/farm/.claude/projects/$step" ] || ln -s "$d" "/farm/.claude/projects/$step"
     done
-    for l in /farm/.claude/projects/*; do [ -e "$l" ] || rm -f "$l"; done # a PVC deleted by hand
+    for l in /farm/.claude/projects/*; do [ -e "$l" ] || rm -f "$l"; done # a step folder deleted by hand
     wget -q -O /dev/null --header "Authorization: Bearer $TOKEN" --post-data '' http://127.0.0.1:8080/api/v1/sync || true
     sleep 30
   done
   ```
 
-  - Each link is named after its PVC, so names never clash. agentsview follows a linked directory, and the session files under it are regular files. Links to the session files themselves don't work: both viewers skip a linked file (spike 8.1).
-  - The share stays outside `/farm/.claude/projects`. agentsview's watcher walks every real directory under that path, which here would be every kept checkout; with only links there, it watches one directory.
+  - Each link is named after its step's folder, `<runId>-<stage>`, so names never clash. agentsview follows a linked directory, and the session files under it are regular files. Links to the session files themselves don't work: both viewers skip a linked file (spike 8.1).
+  - The volume stays outside `/farm/.claude/projects`. agentsview's watcher walks every real directory under that path; with only links there, it watches one directory.
   - The sync skips unchanged files: 0.3 s over 14 sessions. *shortcut: each sync stats every kept session file over NFS; call it less often when kept runs reach the thousands.*
 - **The labels.**
   - The project comes from the transcript's `cwd`. agentsview names it by the last segment, the `<repo>` of `/f8/<owner>/<repo>` (D8), so every step of a repo lands in that repo's project (D1).
@@ -118,9 +120,9 @@ What comes with agentsview:
   - M5's SDLC run doesn't name its run in the prompt; its sessions are found by time.
 - **Rejected:**
   - **mounting each PVC into the viewer:** every new step would mean a pod restart and Kubernetes API access for the viewer;
-  - **sandboxes writing sessions to one shared volume:** breaks a step's isolation (DEP-11) and the "one PVC per step" rule (M5 D2);
+  - **an inline `nfs` volume of the share's `factory8-sandboxes` directory** (this design's first version, which the spike used): works only where every PVC is a folder of one NFS export. split-session-logs replaced it with the log volume, which each step mounts by subPath, so a step still sees only its own folder (DEP-11);
   - **a `hostPath` of the export's backing directory:** would only work where the NFS server is the node, and the farm already fixes discovery;
-  - **the share mounted inside the projects directory** (at `.share`, with relative links): cchv needed it, because it refuses any path that resolves outside `~/.claude/projects`. agentsview would then watch the whole share.
+  - **the volume mounted inside the projects directory** (at `.share`, with relative links): cchv needed it, because it refuses any path that resolves outside `~/.claude/projects`. agentsview would then watch the whole volume.
 
 ### D3. Freshness: the farm asks for a sync, no live push
 
@@ -131,7 +133,7 @@ What comes with agentsview:
 
 That covers the stuck-step case in the spec. M2's `f8 watch` stays the live view of progress.
 - **Rejected:**
-  - **polling the share and pushing to the browser:** that is building a viewer feature for a nice-to-have;
+  - **polling the volume and pushing to the browser:** that is building a viewer feature for a nice-to-have;
   - **the ↻ button alone:** a new step would stay hidden until someone presses it, and the spec asks for a minute.
 
 ### D4. The viewer's image and Deployment
@@ -139,17 +141,17 @@ That covers the stuck-step case in the spec. M2's `f8 watch` stays the live view
 **Proposed:**
 - **The images:** agentsview's published image, pinned by digest (`ghcr.io/kenn-io/agentsview:0.46.1@sha256:f43a5fe63c83dc4062f47b731d13f5ecc66131763112b651f3c78de7edc2c395`), and a pinned `busybox` for the `farm` container.
 - **`deploy/viewer.yaml`:**
-  - a Deployment `factory8-viewer` in `factory8`, with two containers:
-    - `viewer`: agentsview on port 8080, with `CLAUDE_PROJECTS_DIR=/farm/.claude/projects`, `AGENTSVIEW_TELEMETRY_ENABLED=0`, `AGENTSVIEW_DISABLE_UPDATE_CHECK=1`, and `AGENTSVIEW_AUTH_TOKEN` from the Secret. Its database is in an `emptyDir` at `/data`, rebuilt from the share when it starts (0.4 s for 14 sessions);
+  - a Deployment `factory8-viewer` in `factory8-sandboxes` (D2), with two containers:
+    - `viewer`: agentsview on port 8080, with `CLAUDE_PROJECTS_DIR=/farm/.claude/projects`, `AGENTSVIEW_TELEMETRY_ENABLED=0`, `AGENTSVIEW_DISABLE_UPDATE_CHECK=1`, and `AGENTSVIEW_AUTH_TOKEN` from the Secret. Its database is in an `emptyDir` at `/data`, rebuilt from the log volume when it starts (0.4 s for 14 sessions);
     - `farm`: the loop in D2, with the same token as `TOKEN`;
-  - the `nfs` volume read-only at `/sessions` in both containers, and an `emptyDir` at `/farm`, read-only in `viewer`;
+  - the PVC `factory8-sessions` read-only at `/sessions` in both containers, and an `emptyDir` at `/farm`, read-only in `viewer`;
   - no ServiceAccount token (`automountServiceAccountToken: false`) and no other Secret;
   - a Service, and an IngressRoute at `factory8-sessions.libre.pod`, modelled on `deploy/web.yaml`;
   - an ExternalSecret `factory8-viewer` from OpenBao key `apps/factory8-viewer` (*user* sets the token).
 - Resume's terminal mode stays at its default, `auto`. The image has no terminal, so Resume only answers with the command (D1).
 - **Rejected:**
   - **a Nix-built image:** agentsview needs a Go and a Node build; its published image, pinned by digest, is the same bytes every time;
-  - **a PVC for its database:** the index rebuilds from the share in under a second. Stars, labels and renames are lost on a restart, which is fine for a read-only viewer.
+  - **a PVC for its database:** the index rebuilds from the log volume in under a second. Stars, labels and renames are lost on a restart, which is fine for a read-only viewer.
 
 ### D5. The Collie inbox
 
@@ -164,7 +166,7 @@ That covers the stuck-step case in the spec. M2's `f8 watch` stays the live view
   - One workspace, `factory8`, and one pane per waiting run, titled by the run ID.
   - The question is seeded as a `text` ask (`seedAsk`) with a 2000-character limit. Its title is `<runId> · <stage>` and its notification line is the question cut to fit.
   - Its body ends with a link to the waiting step's session in the viewer. The base URL is `FACTORY8_VIEWER_URL`.
-  - The session ID comes from `factory8-<runId>-<stage>/state/session` on the share, which the inbox mounts read-only, as the viewer does (D2). The adapter writes that file when the session starts.
+  - The session ID comes from `<runId>-<stage>/state/session` on the session-log volume, which the inbox mounts read-only at `/sessions`, as the viewer does (D2). So the inbox runs in `factory8-sandboxes` too. The adapter writes that file when the session starts.
   - The link is `<FACTORY8_VIEWER_URL>/sessions/<id>`, agentsview's form. On a phone that doesn't hold the token yet, it opens the token form first, then the session (D1).
   - `askId` is a hash of run ID, stage and question, so the same question keeps its ask, and its single push, across inbox restarts.
 - **The answer.** The ask's sink refuses a reply that is blank once trimmed, as `f8 answer` does, and leaves the ask open. Otherwise it re-queries `state` and checks two things:
@@ -178,7 +180,7 @@ That covers the stuck-step case in the spec. M2's `f8 watch` stays the live view
   - **a Telegram bot:** a cloud service, and a second phone app next to Collie;
   - **GitHub `/answer` comments:** they stay M3's forge channel; they need a comment poller and owner checks, and push only on an @mention;
   - **`pane.ask()` with a promise per ask:** the program then holds the answer's fate in memory; the sink checks Temporal at answer time, which is where the truth is;
-  - **the session ID in the run's `state`:** it would mean a new field in the adapter's exit event, in the worker and in `RunState`, just for a link; the file is already on the share.
+  - **the session ID in the run's `state`:** it would mean a new field in the adapter's exit event, in the worker and in `RunState`, just for a link; the file is already on the log volume, which the viewer mounts anyway.
 
 ### D6. One answer per question, in the workflow
 
@@ -231,21 +233,23 @@ That covers the stuck-step case in the spec. M2's `f8 watch` stays the live view
 ## Risks / Trade-offs
 
 - **Transcripts can hold secrets.** A tool result may print an environment variable, for example `GH_TOKEN` (#1). Anyone who holds the viewer's token reads them. → The viewer is token-gated and reachable on the cluster's network and the tailnet only. The gap goes under "Not in the POC" (SSO, PLT-7), and #1 removes the secrets from sandboxes.
-- **Whoever holds the viewer's token can run commands in its pod,** through agentsview's custom terminal (D1). → The pod has the share read-only, no ServiceAccount token and no other Secret, but it reaches the cluster network, Temporal included. The gap goes under "Not in the POC" with the token-only gate (8.0). A NetworkPolicy that denies the pod's egress closes it later.
-- **Both third-party pieces are small projects, and Collie's wire is experimental.** → Pin both: the viewer by its image digest, the SDK at an exact version. Each piece only reads the share or talks to Temporal, so replacing one touches no workflow. `f8 answer` always works.
+- **Whoever holds the viewer's token can run commands in its pod,** through agentsview's custom terminal (D1). → The pod has the log volume read-only, no ServiceAccount token and no other Secret, but it reaches the cluster network, Temporal included. The gap goes under "Not in the POC" with the token-only gate (8.0). A NetworkPolicy that denies the pod's egress closes it later.
+- **Both third-party pieces are small projects, and Collie's wire is experimental.** → Pin both: the viewer by its image digest, the SDK at an exact version. Each piece only reads the log volume or talks to Temporal, so replacing one touches no workflow. `f8 answer` always works.
 - **agentsview names a project by the repo alone.** Two repos of the same name under different owners share a project. → Rare within one installation; one of them can pin a different `workdir` (D8).
 - **`project.yaml` is read with a one-line match, not a YAML parser.** A `workdir` written in another YAML form, such as a flow mapping or a quoted key, isn't seen, and the path falls back to the URL. → Our example shows the one form, and the shortcut in D8 names the upgrade.
 - **A step waiting on a question across the adapter change** would resume in a fresh checkout at the new path. The old session is filed under `-f8-work`, so `--resume` fails and the adapter falls back to a fresh session with the handoff note. Any uncommitted work in `/f8/work` is left behind. → Deploy the new sandbox image when no run waits on a question (Migration Plan).
 - **Collie may not trust the cluster CA.** → Spike 8.2. The fallback is the localhost sidecar in D5.
 - **A late tap between the inbox's check and its signal.** → The workflow guard (D6) drops it. The cost is that the second answer's sender sees "taken" while the run ignored it. That's rare, and the pane closes on the next poll.
 - **An open-run scan every 10 s.** → Fine at POC scale; the shortcut in D5 names the upgrade.
-- **The share holds every kept run.** → The viewer lists all of them, until PVCs are deleted by hand (ART-10, Phase 2).
+- **The log volume holds every kept step's logs.** → The viewer lists all of them, until retention removes them (ART-10, Phase 2).
+- **The viewer and the inbox run in `factory8-sandboxes`,** beside the untrusted sandboxes, to mount the log volume. → In the POC no NetworkPolicy separates the namespaces anyway. Neither pod has a ServiceAccount token, and each holds only its own token.
 
 ## Migration Plan
 
 1. The workflow guard (D6) ships with the next worker image. A run in flight replays deterministically, because the handler issues no commands.
    - Ship the adapter change (D8) at the same time: rebuild the sandbox image, and put its tag in `deploy/worker.yaml`. Do it when no run waits on a question (`f8` shows none).
-   - Runs kept from before stay under `-f8-work`, and the viewer shows them as one "work" project.
+   - split-session-logs is deployed first (its 7.1): the viewer and the inbox mount its volume.
+   - Steps kept from before reach the viewer only if they were copied into the log volume (split-session-logs 7.2), and it shows them as one "work" project.
 2. *user*: put the two tokens in OpenBao, then `kubectl apply -k deploy/` with `viewer.yaml` and `inbox.yaml` after importing both images.
 3. *user*: attach the inbox in Collie (D5).
 
@@ -253,4 +257,4 @@ Rollback: delete the two Deployments and detach the inbox in Collie. Nothing els
 
 ## Open Questions
 
-- Codex and pi sessions: when a sandbox first runs Codex (AGT-2, Phase 1), the farm also links `/sessions/*/home/.codex/sessions` and the viewer gets `CODEX_SESSIONS_DIR`. This is deferred because no sandbox writes them yet.
+- Codex and pi sessions: when a sandbox first runs Codex (AGT-2, Phase 1), the adapter links `~/.codex/sessions` onto the log volume as it does Claude Code's projects (split-session-logs D2), the farm links those folders too, and the viewer gets `CODEX_SESSIONS_DIR`. This is deferred because no sandbox writes them yet.

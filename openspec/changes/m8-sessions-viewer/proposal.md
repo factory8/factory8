@@ -2,7 +2,7 @@
 
 ## Why
 
-Every step's Claude Code session stays on its PVC (AGT-11), but the only way to read one today is to copy the `*.jsonl` file off the share and open it in a terminal. Reading how an agent reasoned is how we tune the stage skills, fix a workflow and audit a run, so it should take one link, also from a phone.
+Every step's Claude Code session is kept on the session-log volume (AGT-11, split-session-logs), but the only way to read one today is to copy the `*.jsonl` file off it and open it in a terminal. Reading how an agent reasoned is how we tune the stage skills, fix a workflow and audit a run, so it should take one link, also from a phone.
 
 A run that waits on a question shows the question only to whoever is watching `f8 run`, or who checks with Temporal. Factory8 is meant to run without babysitting, so the rare question should come to the engineer as a push notification, and take the answer from the same place.
 
@@ -15,7 +15,7 @@ A run that waits on a question shows the question only to whoever is watching `f
   - Owners named `home`, `state` or `plugin` are refused: their checkout would land in the sandbox's own directories.
 - **A session viewer: a read-only third-party web UI over every step's session.**
   - [agentsview](https://github.com/kenn-io/agentsview). A spike ran it and [claude-code-history-viewer](https://github.com/jhlee0409/claude-code-history-viewer) on real sessions, and picked agentsview (design D1).
-  - It reads the sandbox PVCs straight off the share, read-only, so a new step's session shows up without anything being copied or uploaded.
+  - It reads the session-log volume, `factory8-sessions`, read-only, so a new step's session shows up without anything being copied or uploaded. It runs in `factory8-sandboxes`, the volume's namespace.
   - It shows thinking, tool calls with their results, and subagent transcripts, grouped by repo and labelled by run and stage. It has a phone layout, and a bearer token gates it.
   - It never starts or resumes an agent: agents run only in sandboxes (SBX-1, invariant 4). To take over a session, an engineer copies it into a terminal and runs `claude --resume`, as AGT-11 already says.
 - **Collie inbox: a waiting run on the engineer's phone.**
@@ -47,7 +47,7 @@ Not in M8:
 - `collie-inbox`: how a waiting run reaches Collie, what its pane holds, how a reply becomes the `answer` signal, and when an ask closes.
 
 ### Modified Capabilities
-- `agent-adapter`: the checkout moves from `/f8/work` to `/f8/<owner>/<repo>`, a name the repo can pin in `.factory8/project.yaml`. This changes "Checkout of the run branch", "AGENTS.md as Claude Code context", "Headless CLI run", "Protocol preamble" and "Filesystem layout".
+- `agent-adapter`: the checkout moves from `/f8/work` to `/f8/<owner>/<repo>`, a name the repo can pin in `.factory8/project.yaml`. This changes "Checkout of the run branch", "AGENTS.md as Claude Code context", "Headless CLI run" and "Protocol preamble". "Filesystem layout", with this checkout, is carried by split-session-logs.
 - `ship-workflow`: a new requirement, "A question takes one answer": an `answer` that arrives while no question waits, or after its question already got one, is dropped.
 
 ## Impact
@@ -60,9 +60,9 @@ Not in M8:
   - root `package.json` workspaces.
 - **Nix:** `flake.nix` gains `inbox-image`, from the same `app` as the worker's image. The viewer needs no Nix build.
 - **Deploy:**
-  - `deploy/viewer.yaml` has the viewer, a link-farm sidecar, the share mounted read-only, a Service, an IngressRoute at `factory8-sessions.libre.pod` and an ExternalSecret for its token;
-  - `deploy/inbox.yaml` has the inbox (with the share mounted read-only, for each step's session ID), a Service, an IngressRoute at `factory8-inbox.libre.pod` and an ExternalSecret for its token;
-  - both are listed in `deploy/kustomization.yaml`;
+  - `deploy/viewer.yaml` has the viewer, a link-farm sidecar, the session-log volume mounted read-only, a Service, an IngressRoute at `factory8-sessions.libre.pod` and an ExternalSecret for its token;
+  - `deploy/inbox.yaml` has the inbox (with the session-log volume mounted read-only, for each step's session ID), a Service, an IngressRoute at `factory8-inbox.libre.pod` and an ExternalSecret for its token;
+  - both run in `factory8-sandboxes`, because a pod mounts only PVCs in its own namespace, and are listed in `deploy/kustomization.yaml`;
   - *user*: the token values go in OpenBao, and Collie, which is the user's own deployment outside this repo, attaches the inbox.
 - **The CLI and the plugin:** unchanged. The plugin's skills don't name `/f8/work`.
 - **Docs:**

@@ -23,7 +23,7 @@
 
 ## 3. Other open changes
 
-- [ ] 3.1 Revise the changes this one touches, with `/openspec-update-change` (after 1.1).
+- [x] 3.1 Revise the changes this one touches, with `/openspec-update-change` (after 1.1).
   - **`m8-sessions-viewer`:**
     - D2's farm links `/sessions/*/projects/*/` from `factory8-sessions`, mounted read-only;
     - the viewer runs in `factory8-sandboxes`, with no `nfs` volume;
@@ -32,7 +32,7 @@
     - 8.5 and 8.6 wait on this change.
   - **`m2-progress-and-logs`:** its restore check reads the log volume.
   - **`m4-recovery`:** at run end a step's workspace is no longer kept.
-  - **Done when** `openspec validate` passes for each.
+  - **Done when** `openspec validate` passes for `m8-sessions-viewer` and this change. `m2-progress-and-logs` and `m4-recovery` have no specs until they start, so validate refuses them either way; their proposal and tasks are revised.
 
 ## 4. Deploy manifests
 

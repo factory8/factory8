@@ -47,7 +47,7 @@ None.
 - `sandbox`:
   - a step's PVC uses the `factory8-workspace` class and is deleted when its step ends;
   - the step's session logs are in its own folder on the session-log volume, which only that step mounts.
-- `agent-adapter`: state and the vendor session files move to `/f8-logs`. This touches "State survives a pod restart" and "Filesystem layout".
+- `agent-adapter`: state and the vendor session files move to `/f8-logs`. This touches "State survives a pod restart", "Filesystem layout", and the three requirements that name the state folder: "Progress events", "Exit status" and "Questions through f8-ask".
 - `run-workflow`: when a step ends, its pod and its PVC are deleted.
 
 ## Impact
@@ -59,6 +59,7 @@ None.
     - a new `deleteWorkspace` activity.
   - `worker/src/flow.ts` and `worker/src/workflows.ts`: the step's `finally` also deletes the workspace.
   - `adapter/src/main.ts`: `STATE` moves, and the projects folder becomes a link.
+  - `adapter/bin/f8-ask`: writes the question to, and names the handoff note in, the new state folder.
   - Tests for both.
 - **Deploy:** `deploy/sessions.yaml`, holding the StorageClass and the PVC, listed in `deploy/kustomization.yaml`. The worker and sandbox images are rebuilt.
 - **Other open changes,** to revise once this one is agreed:

@@ -58,7 +58,7 @@ See proposal.md for why. What exists now:
 ### D2. The adapter writes straight onto the log volume
 
 **Proposed:**
-- **Paths.** `LOGS` is `${ROOT}-logs`, so `/f8-logs` in a sandbox, and a sibling of the temporary root in tests. No new variable is needed. `STATE` becomes `${LOGS}/state`.
+- **Paths.** `LOGS` is `${ROOT}-logs`, so `/f8-logs` in a sandbox, and a sibling of the temporary root in tests. No new variable is needed. `STATE` becomes `${LOGS}/state`, and `f8-ask` writes `question.md` there and names `handoff.md` there, from the same `FACTORY8_ROOT`.
 - **The link.**
   - At start, the adapter creates `${LOGS}/projects` and `${HOME}/.claude`.
   - It links `${HOME}/.claude/projects` to `${LOGS}/projects` unless that path already exists.

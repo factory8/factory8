@@ -6,11 +6,11 @@ Lets an engineer read every agent session Factory8 keeps (AGT-11): how the agent
 
 ## ADDED Requirements
 
-### Requirement: The viewer shows every step's session from the share
-The viewer SHALL list the Claude Code sessions on every sandbox PVC kept on the share, finished or still being written. It SHALL read them where they are, read-only. It SHALL NOT copy, upload or change them. A step created after the viewer started SHALL appear without a restart or redeploy.
+### Requirement: The viewer shows every step's session from the session-log volume
+The viewer SHALL list the Claude Code sessions in every step's folder of the session-log volume, `factory8-sessions` (`sandbox` spec), finished or still being written. It SHALL read them where they are, read-only. It SHALL NOT copy, upload or change them. A step created after the viewer started SHALL appear without a restart or redeploy.
 
 #### Scenario: Finished run
-- **WHEN** run `k3x9qa` finished, and its PVCs `factory8-k3x9qa-design` and `factory8-k3x9qa-implement-1` are still on the share
+- **WHEN** run `k3x9qa` finished, its steps' PVCs are deleted, and their folders `k3x9qa-design` and `k3x9qa-implement-1` are on the session-log volume
 - **THEN** the viewer lists both steps' sessions
 
 #### Scenario: New step
@@ -19,13 +19,13 @@ The viewer SHALL list the Claude Code sessions on every sandbox PVC kept on the 
 
 #### Scenario: Read-only
 - **WHEN** someone uses every page and action the viewer offers
-- **THEN** no file on the share is created, changed or deleted
+- **THEN** no file on the session-log volume is created, changed or deleted
 
 ### Requirement: Sessions are grouped by repo and labelled by run and stage
 The viewer SHALL list each session under the repo its step worked on (`<owner>/<repo>`, from the checkout path), and SHALL show the run ID and the stage of its step, so a session can be found from a repo and a run ID.
 
 #### Scenario: Grouped by repo
-- **WHEN** runs on factory8/factory8 and librepod/marketplace are kept on the share
+- **WHEN** runs on factory8/factory8 and librepod/marketplace are kept on the session-log volume
 - **THEN** the viewer lists their sessions under two projects, one per repo
 
 #### Scenario: Label

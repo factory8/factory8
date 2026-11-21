@@ -48,24 +48,22 @@
   - `nix build .#sandbox-image` passes.
 
   `npm test` and `npm run typecheck` pass. The image is deployed with 8.5 (Migration Plan).
-- [ ] 8.5 The viewer (*user* + me; design D2–D4; `session-viewer` spec; after 8.1, 8.3, 8.4). Done when:
+- [ ] 8.5 The viewer (*user* + me; design D2–D4; `session-viewer` spec; after 8.1, 8.3, 8.4, split-session-logs 7.1). Done when:
   - the picked viewer's image builds or is pinned;
-  - `deploy/viewer.yaml` (Deployment with `viewer` and `farm`, the read-only `nfs` volume, Service, IngressRoute, ExternalSecret) is in `deploy/kustomization.yaml`;
-  - *user*:
-    - the token is in OpenBao, and the manifests are applied;
-    - with no run waiting on a question, the new worker and sandbox images are imported and their tags set in `deploy/worker.yaml`;
+  - `deploy/viewer.yaml` (Deployment in `factory8-sandboxes` with `viewer` and `farm`, the PVC `factory8-sessions` mounted read-only, Service, IngressRoute, ExternalSecret) is in `deploy/kustomization.yaml`;
+  - *user*: the token is in OpenBao, and the manifests are applied. The worker and sandbox images with 8.3 and 8.4 ship with split-session-logs 7.1;
   - at `https://factory8-sessions.libre.pod`, from a phone on the tailnet:
     - a request without the token is refused;
     - with it, a ship run started after the deploy is listed under factory8/factory8, with its run and stage shown;
     - a step started after the deploy appears within a minute;
     - a reload of a running step's session shows its new turns within the time D1 recorded;
   - the viewer's pod has no ServiceAccount token, and no binary named `claude`, `codex` or `pi`.
-- [ ] 8.6 The inbox (design D5; `collie-inbox` spec; after 8.1, 8.2). Done when:
+- [ ] 8.6 The inbox (design D5; `collie-inbox` spec; after 8.1, 8.2, split-session-logs 7.1). Done when:
   - `inbox/` is a workspace with `src/main.ts`, and depends on `@temporalio/client` and `@colliepwa/durable-sdk` at an exact version;
   - `inbox/test/` covers:
     - `waiting()` returns an ask only for runs whose `state` has a question, and skips runs without a `state` or with no question;
     - `askId` is the same for the same run, stage and question, and different for a new question;
-    - the link is built from the step's `state/session` file and the picked viewer's deep-link form;
+    - the link is built from the step's `<runId>-<stage>/state/session` file on the log volume and the picked viewer's deep-link form;
     - the sink signals `answer` and replies `taken` when the run still waits on that question, and replies `too-late` with no signal otherwise;
     - the sink refuses a blank reply, before it queries `state`, and sends no signal;
     - the bearer check answers 401 to a missing or wrong token;
@@ -74,7 +72,7 @@
   `npm test` and `npm run typecheck` pass.
 - [ ] 8.7 Inbox deploy (*user* + me; design D5, Migration Plan; after 8.5, 8.6). Done when:
   - `deploy/inbox.yaml` is in `deploy/kustomization.yaml`. It holds:
-    - a Deployment with `TEMPORAL_ADDRESS`, `FACTORY8_VIEWER_URL`, the token, and the share mounted read-only;
+    - a Deployment in `factory8-sandboxes` with `TEMPORAL_ADDRESS`, `FACTORY8_VIEWER_URL`, the token, and the PVC `factory8-sessions` mounted read-only;
     - a Service, an IngressRoute and an ExternalSecret;
   - *user*: the token is in OpenBao, the image is imported, the manifests are applied, and the inbox is attached in Collie as 8.2 recorded;
   - `curl https://factory8-inbox.libre.pod/session/v1/hello` without the token answers 401.
