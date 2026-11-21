@@ -10,6 +10,8 @@ The decisions below are proposals until the user agrees them. The viewer spike (
 
 **Revised 2026-11-21 for split-session-logs:** sessions are now kept on one session-log volume, not on each step's PVC, so the viewer (D2, D4) and the inbox (D5) mount that volume instead of the NFS export, and run in its namespace. The spike (D1) ran on the old layout; nothing it measured depends on where the files come from.
 
+**Revised 2026-11-21 for SSO:** the viewer sits behind the cluster's SSO, and Traefik adds its token (D4).
+
 ## Context
 
 See proposal.md for why. What exists now:
@@ -74,6 +76,7 @@ Both candidates read the same farm (D2), render thinking, tool calls with result
 What comes with agentsview:
 - **It has no read-only switch.** A token holder can change its database and its settings. One setting is a custom terminal command (`POST /api/v1/config/terminal`), which Resume then runs in the pod. So whoever holds the token can run commands in the viewer's pod. The share is read-only there and the pod has no ServiceAccount token, but the cluster network, Temporal included, is in reach (Risks).
 - **Telemetry and the update check are on by default.** D4 turns both off. The spike's log shows no outbound call, but no packet capture was taken.
+- **No SSO of its own** (its source, checked 2026-11-21): one shared bearer token, read only from `Authorization`. It has no OIDC, reads no identity header and no cookie. D4 puts the cluster's SSO in front.
 
 - **Rejected:**
   - **cchv:** for the spike's findings above. Its release binary is also the desktop build, linked to WebKitGTK and GTK even for `--serve`: a 648 MB image. What it had over agentsview, a reread on each request, the farm's sync call gives agentsview (D3);
@@ -139,19 +142,30 @@ That covers the stuck-step case in the spec. M2's `f8 watch` stays the live view
 ### D4. The viewer's image and Deployment
 
 **Proposed:**
-- **The images:** agentsview's published image, pinned by digest (`ghcr.io/kenn-io/agentsview:0.46.1@sha256:f43a5fe63c83dc4062f47b731d13f5ecc66131763112b651f3c78de7edc2c395`), and a pinned `busybox` for the `farm` container.
+- **The images:** agentsview's published image, pinned by digest (`ghcr.io/kenn-io/agentsview:0.47.0@sha256:5890415a43dfb9314a95ee3eb9f425af61ec4772b458f031b4e4dfa4def61ccc`), and a pinned `busybox` for the `farm` container. The spike (D1) ran 0.46.1.
 - **`deploy/viewer.yaml`:**
   - a Deployment `factory8-viewer` in `factory8-sandboxes` (D2), with two containers:
     - `viewer`: agentsview on port 8080, with `CLAUDE_PROJECTS_DIR=/farm/.claude/projects`, `AGENTSVIEW_TELEMETRY_ENABLED=0`, `AGENTSVIEW_DISABLE_UPDATE_CHECK=1`, and `AGENTSVIEW_AUTH_TOKEN` from the Secret. Its database is in an `emptyDir` at `/data`, rebuilt from the log volume when it starts (0.4 s for 14 sessions);
     - `farm`: the loop in D2, with the same token as `TOKEN`;
   - the PVC `factory8-sessions` read-only at `/sessions` in both containers, and an `emptyDir` at `/farm`, read-only in `viewer`;
   - no ServiceAccount token (`automountServiceAccountToken: false`) and no other Secret;
-  - a Service, and an IngressRoute at `factory8-sessions.libre.pod`, modelled on `deploy/web.yaml`;
-  - an ExternalSecret `factory8-viewer` from OpenBao key `apps/factory8-viewer` (*user* sets the token).
+  - a Service, and an IngressRoute at `factory8-sessions.libre.pod` behind the cluster's SSO. It runs three middlewares in order:
+    - oauth2-proxy's `oauth2-errors` and `oauth2-forwardauth`, as Gogs's route does;
+    - then `factory8-viewer-token`, which sets `Authorization: Bearer <token>`.
+
+    A signed-in browser never sees agentsview's token form. A call to the Service that skips Traefik, from a sandbox say, still needs the token.
+- **`deploy/viewer-token.yaml`, kept out of git** (`.gitignore`): the Secret `factory8-viewer` and the Middleware `factory8-viewer-token`, both holding the token. *user* makes it with a new token; `viewer.yaml`'s header says how.
+  - Not in OpenBao: Traefik's `headers` middleware takes the value in its spec, not from a Secret, so the token would sit in the Middleware anyway.
+- **Checked on the pilot cluster** (2026-11-21, one step's sessions, no farm yet):
+  - without the SSO cookie, Traefik redirects to the sign-in;
+  - straight to the Service, the API answers 401 without the token;
+  - signed in, a session's link opened with no token form.
 - Resume's terminal mode stays at its default, `auto`. The image has no terminal, so Resume only answers with the command (D1).
 - **Rejected:**
   - **a Nix-built image:** agentsview needs a Go and a Node build; its published image, pinned by digest, is the same bytes every time;
-  - **a PVC for its database:** the index rebuilds from the log volume in under a second. Stars, labels and renames are lost on a restart, which is fine for a read-only viewer.
+  - **a PVC for its database:** the index rebuilds from the log volume in under a second. Stars, labels and renames are lost on a restart, which is fine for a read-only viewer;
+  - **SSO with agentsview's token off** (`AGENTSVIEW_REQUIRE_AUTH=false`): a sandbox in the same namespace could call the Service directly, read every session and set the custom terminal (D1);
+  - **SSO plus agentsview's token form:** two logins, and the token kept in every browser.
 
 ### D5. The Collie inbox
 
@@ -167,7 +181,7 @@ That covers the stuck-step case in the spec. M2's `f8 watch` stays the live view
   - The question is seeded as a `text` ask (`seedAsk`) with a 2000-character limit. Its title is `<runId> · <stage>` and its notification line is the question cut to fit.
   - Its body ends with a link to the waiting step's session in the viewer. The base URL is `FACTORY8_VIEWER_URL`.
   - The session ID comes from `<runId>-<stage>/state/session` on the session-log volume, which the inbox mounts read-only at `/sessions`, as the viewer does (D2). So the inbox runs in `factory8-sandboxes` too. The adapter writes that file when the session starts.
-  - The link is `<FACTORY8_VIEWER_URL>/sessions/<id>`, agentsview's form. On a phone that doesn't hold the token yet, it opens the token form first, then the session (D1).
+  - The link is `<FACTORY8_VIEWER_URL>/sessions/<id>`, agentsview's form. On a phone that isn't signed in yet, it opens the SSO sign-in first, then the session (D4).
   - `askId` is a hash of run ID, stage and question, so the same question keeps its ask, and its single push, across inbox restarts.
 - **The answer.** The ask's sink refuses a reply that is blank once trimmed, as `f8 answer` does, and leaves the ask open. Otherwise it re-queries `state` and checks two things:
   - if `question` is still that question, it signals `answer` with the text and replies `taken`;
@@ -232,8 +246,10 @@ That covers the stuck-step case in the spec. M2's `f8 watch` stays the live view
 
 ## Risks / Trade-offs
 
-- **Transcripts can hold secrets.** A tool result may print an environment variable, for example `GH_TOKEN` (#1). Anyone who holds the viewer's token reads them. → The viewer is token-gated and reachable on the cluster's network and the tailnet only. The gap goes under "Not in the POC" (SSO, PLT-7), and #1 removes the secrets from sandboxes.
-- **Whoever holds the viewer's token can run commands in its pod,** through agentsview's custom terminal (D1). → The pod has the log volume read-only, no ServiceAccount token and no other Secret, but it reaches the cluster network, Temporal included. The gap goes under "Not in the POC" with the token-only gate (8.0). A NetworkPolicy that denies the pod's egress closes it later.
+- **Transcripts can hold secrets.** A tool result may print an environment variable, for example `GH_TOKEN` (#1). Anyone who signs in to the cluster's SSO reads them: it lets in any of its users, with no role check. → The viewer is reachable on the cluster's network and the tailnet only. The missing roles go under "Not in the POC" (PLT-7), and #1 removes the secrets from sandboxes.
+- **Whoever signs in can run commands in the viewer's pod,** through agentsview's custom terminal (D1), since Traefik adds the token for them. → The pod has the log volume read-only, no ServiceAccount token and no other Secret, but it reaches the cluster network, Temporal included. The gap goes under "Not in the POC" (8.0). A NetworkPolicy that denies the pod's egress closes it later.
+- **The viewer's token is in plain text,** in the Middleware and in `deploy/viewer-token.yaml` (D4). → Whoever can read Middlewares in `factory8-sandboxes` can call the viewer directly; in the POC nothing limits that read. It goes under "Not in the POC" (8.0).
+- **agentsview lists none of run `pdi0bk`'s sessions** (2026-11-21): it marks each a `subagent` with no parent, and its list hides subagents. A session's link still opens it, and the spike's sessions were listed. → Found out in 8.5: a change on our side or an issue upstream.
 - **Both third-party pieces are small projects, and Collie's wire is experimental.** → Pin both: the viewer by its image digest, the SDK at an exact version. Each piece only reads the log volume or talks to Temporal, so replacing one touches no workflow. `f8 answer` always works.
 - **agentsview names a project by the repo alone.** Two repos of the same name under different owners share a project. → Rare within one installation; one of them can pin a different `workdir` (D8).
 - **`project.yaml` is read with a one-line match, not a YAML parser.** A `workdir` written in another YAML form, such as a flow mapping or a quoted key, isn't seen, and the path falls back to the URL. → Our example shows the one form, and the shortcut in D8 names the upgrade.
@@ -250,7 +266,7 @@ That covers the stuck-step case in the spec. M2's `f8 watch` stays the live view
    - Ship the adapter change (D8) at the same time: rebuild the sandbox image, and put its tag in `deploy/worker.yaml`. Do it when no run waits on a question (`f8` shows none).
    - split-session-logs is deployed first (its 7.1): the viewer and the inbox mount its volume.
    - Steps kept from before reach the viewer only if they were copied into the log volume (split-session-logs 7.2), and it shows them as one "work" project.
-2. *user*: put the two tokens in OpenBao, then `kubectl apply -k deploy/` with `viewer.yaml` and `inbox.yaml` after importing both images.
+2. *user*: make and apply `deploy/viewer-token.yaml` (done 2026-11-21), put the inbox's token in OpenBao and import the inbox's image, then `kubectl apply -k deploy/` with `viewer.yaml` and `inbox.yaml`.
 3. *user*: attach the inbox in Collie (D5).
 
 Rollback: delete the two Deployments and detach the inbox in Collie. Nothing else depends on them.

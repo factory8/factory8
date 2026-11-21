@@ -46,15 +46,19 @@ For a step that is still running, a reload of its session SHALL show the turns w
 - **WHEN** a step has run for an hour with no progress, and the engineer reloads its session
 - **THEN** they see the agent's latest turns
 
-### Requirement: The viewer is reached by one URL and gated by a token
-The viewer SHALL be served at one HTTPS URL, from the cluster's network and the tailnet. Every page and API call SHALL require the viewer's token. It SHALL be usable at phone width. Each session SHALL have a link that opens it.
+### Requirement: The viewer is reached by one URL behind the installation's sign-in
+The viewer SHALL be served at one HTTPS URL, from the cluster's network and the tailnet, behind the installation's single sign-on. A request that hasn't signed in SHALL be sent to the sign-in and get no session content. The viewer's API SHALL also refuse any call without the viewer's token, so a call that skips the sign-in gets nothing. It SHALL be usable at phone width. Each session SHALL have a link that opens it.
+
+#### Scenario: Not signed in
+- **WHEN** a browser that hasn't signed in opens the viewer or a session's link
+- **THEN** it is sent to the sign-in, and no session content is returned
 
 #### Scenario: No token
-- **WHEN** a request without the token reaches the viewer
+- **WHEN** a call reaches the viewer's Service directly, without the token
 - **THEN** it is refused, and no session content is returned
 
 #### Scenario: Phone
-- **WHEN** the engineer opens a session's link on a phone that holds the token
+- **WHEN** the engineer opens a session's link on a phone that is signed in
 - **THEN** the session reads at phone width, with no sideways scrolling of the page
 
 ### Requirement: The viewer never runs an agent

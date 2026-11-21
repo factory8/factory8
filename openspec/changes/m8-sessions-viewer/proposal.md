@@ -16,7 +16,7 @@ A run that waits on a question shows the question only to whoever is watching `f
 - **A session viewer: a read-only third-party web UI over every step's session.**
   - [agentsview](https://github.com/kenn-io/agentsview). A spike ran it and [claude-code-history-viewer](https://github.com/jhlee0409/claude-code-history-viewer) on real sessions, and picked agentsview (design D1).
   - It reads the session-log volume, `factory8-sessions`, read-only, so a new step's session shows up without anything being copied or uploaded. It runs in `factory8-sandboxes`, the volume's namespace.
-  - It shows thinking, tool calls with their results, and subagent transcripts, grouped by repo and labelled by run and stage. It has a phone layout, and a bearer token gates it.
+  - It shows thinking, tool calls with their results, and subagent transcripts, grouped by repo and labelled by run and stage. It has a phone layout. The cluster's SSO gates it, and Traefik then adds the viewer's own bearer token.
   - It never starts or resumes an agent: agents run only in sandboxes (SBX-1, invariant 4). To take over a session, an engineer copies it into a terminal and runs `claude --resume`, as AGT-11 already says.
 - **Collie inbox: a waiting run on the engineer's phone.**
   - A small Node service, `inbox/`. Through Collie's durable-agent SDK it shows each run that waits on a question as a pane in [Collie](https://colliepwa.dev), the phone PWA the user already runs.
@@ -24,7 +24,7 @@ A run that waits on a question shows the question only to whoever is watching `f
   - A reply in Collie becomes the run's `answer` signal, as `f8 answer` sends it today. A question answered somewhere else, or a run that ends, closes the ask.
   - `f8 answer` keeps working, and nothing requires Collie (invariant 14).
 - **A run takes one answer per question.** Once two channels can answer, a second answer to the same question would sit in the queue and be taken as the answer to the run's *next* question. The ship run drops an `answer` that arrives while no question waits, or after its question already has an answer.
-- **Deploy:** two Deployments in `deploy/` (viewer and inbox), each with a Service, a Traefik route and a token Secret from OpenBao. The inbox's image is Nix-built and imported by hand, like the worker's; the viewer runs agentsview's published image, pinned by digest.
+- **Deploy:** two Deployments in `deploy/` (viewer and inbox), each with a Service and a Traefik route. The viewer's route goes through the cluster's SSO, and its token is in `deploy/viewer-token.yaml`, kept out of git; the inbox's token comes from OpenBao. The inbox's image is Nix-built and imported by hand, like the worker's; the viewer runs agentsview's published image, pinned by digest.
 - **PRD (approved by the user on 2026-11-05):**
   - new PLT-9 (session viewer) and PLT-10 (phone inbox);
   - §4's "no web UI" non-goal and PLT-5 make room for a third-party read-only viewer;
@@ -38,7 +38,7 @@ Not in M8:
 - the adapter's `events.jsonl` in the viewer (that's M2's progress);
 - notifications for anything other than a question: stalls (M4) and finished runs;
 - the agent's transcript inside Collie (the pane links to the viewer instead);
-- SSO for the viewer and the inbox (PLT-7, Phase 4): a token each, logged under "Not in the POC".
+- Factory8's own SSO and roles (PLT-7, Phase 4): the viewer uses the cluster's SSO, which lets in any of its users, and the inbox takes a token. Both are logged under "Not in the POC".
 
 ## Capabilities
 
@@ -60,10 +60,10 @@ Not in M8:
   - root `package.json` workspaces.
 - **Nix:** `flake.nix` gains `inbox-image`, from the same `app` as the worker's image. The viewer needs no Nix build.
 - **Deploy:**
-  - `deploy/viewer.yaml` has the viewer, a link-farm sidecar, the session-log volume mounted read-only, a Service, an IngressRoute at `factory8-sessions.libre.pod` and an ExternalSecret for its token;
+  - `deploy/viewer.yaml` has the viewer, a link-farm sidecar, the session-log volume mounted read-only, a Service, and an IngressRoute at `factory8-sessions.libre.pod` behind the cluster's SSO. Its token's Secret and Middleware are in `deploy/viewer-token.yaml`, which `.gitignore` keeps out of git;
   - `deploy/inbox.yaml` has the inbox (with the session-log volume mounted read-only, for each step's session ID), a Service, an IngressRoute at `factory8-inbox.libre.pod` and an ExternalSecret for its token;
   - both run in `factory8-sandboxes`, because a pod mounts only PVCs in its own namespace, and are listed in `deploy/kustomization.yaml`;
-  - *user*: the token values go in OpenBao, and Collie, which is the user's own deployment outside this repo, attaches the inbox.
+  - *user*: the inbox's token goes in OpenBao, the viewer's in `deploy/viewer-token.yaml`, and Collie, which is the user's own deployment outside this repo, attaches the inbox.
 - **The CLI and the plugin:** unchanged. The plugin's skills don't name `/f8/work`.
 - **Docs:**
   - PRD (above);

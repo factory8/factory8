@@ -10,7 +10,11 @@
 - [ ] 8.0 Docs (design D7; after none). Done when:
   - (done 2026-11-05) the PRD has PLT-9, PLT-10, the §4, PLT-5, AGT-11, PRJ-1, §8 and §12 edits, and a §0 row, all approved by the user;
   - (done 2026-11-05) `docs/site/prd.html` and `architecture.html` match the PRD, and `arch.d2` shows the viewer and the inbox, re-rendered to `arch.svg`;
-  - `docs/plans/poc.md` has the M8 row (after M6). Under "Not in the POC" it lists the viewer and the inbox gated by a token each, not by SSO (PLT-7), transcripts readable by anyone who holds the viewer's token (#1), and commands that a holder of the viewer's token can run in its pod (agentsview's custom terminal, design D1);
+  - `docs/plans/poc.md` has the M8 row (after M6). Under "Not in the POC" it lists:
+    - the viewer behind the cluster's SSO with no role check, and the inbox gated by a token (PLT-7);
+    - transcripts readable by anyone who signs in (#1);
+    - commands that anyone who signs in can run in the viewer's pod (agentsview's custom terminal, design D1);
+    - the viewer's token in plain text in a Middleware (design D4);
   - `CLAUDE.md` lists `inbox/`, the viewer and inbox images, and the checkout at `/f8/<owner>/<repo>` with `workdir` in `.factory8/project.yaml`;
   - the memory file notes M8.
 - [x] 8.1 Viewer spike (by hand; design D1–D3; after none). Run agentsview and `cchv-server` v1.32.2 (`--serve --read-only`) on one farm built by D2's loop. The farm points at a copy of the share's `factory8-sandboxes` that holds at least one finished ship run. In one copied session, rewrite `cwd` to `/f8/factory8/factory8` with `sed` on the copy, to stand in for D8 before the adapter changes. Done when D1 records, for each viewer:
@@ -50,11 +54,11 @@
   `npm test` and `npm run typecheck` pass. The image is deployed with 8.5 (Migration Plan).
 - [ ] 8.5 The viewer (*user* + me; design D2–D4; `session-viewer` spec; after 8.1, 8.3, 8.4, split-session-logs 7.1). Done when:
   - the picked viewer's image builds or is pinned;
-  - `deploy/viewer.yaml` (Deployment in `factory8-sandboxes` with `viewer` and `farm`, the PVC `factory8-sessions` mounted read-only, Service, IngressRoute, ExternalSecret) is in `deploy/kustomization.yaml`;
-  - *user*: the token is in OpenBao, and the manifests are applied. The worker and sandbox images with 8.3 and 8.4 ship with split-session-logs 7.1;
+  - `deploy/viewer.yaml` (in `deploy/kustomization.yaml` since 2026-11-21, behind SSO, showing one step's sessions) gains the `farm` container, and `CLAUDE_PROJECTS_DIR` moves to the farm;
+  - *user*: `deploy/viewer-token.yaml` is made and applied (done 2026-11-21), and the manifests are applied. The worker and sandbox images with 8.3 and 8.4 ship with split-session-logs 7.1;
   - at `https://factory8-sessions.libre.pod`, from a phone on the tailnet:
-    - a request without the token is refused;
-    - with it, a ship run started after the deploy is listed under factory8/factory8, with its run and stage shown;
+    - a browser that isn't signed in is sent to the SSO sign-in, and a call to the Service without the token gets 401;
+    - signed in, a ship run started after the deploy is listed under factory8/factory8, with its run and stage shown (design Risks: the list hid run `pdi0bk`'s sessions);
     - a step started after the deploy appears within a minute;
     - a reload of a running step's session shows its new turns within the time D1 recorded;
   - the viewer's pod has no ServiceAccount token, and no binary named `claude`, `codex` or `pi`.

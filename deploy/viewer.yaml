@@ -1,0 +1,60 @@
+# The session viewer (M8 design D1, D4): agentsview at factory8-sessions.libre.pod, behind the cluster's SSO (oauth2-proxy).
+# After sign-in, Traefik adds agentsview's token, so no token form; a direct call to the Service, from a sandbox say,
+# still needs it. The token is in deploy/viewer-token.yaml, kept out of git: the Secret factory8-viewer (key `token`) and
+# the Middleware factory8-viewer-token (header `Authorization: Bearer <token>`). Make it with a new token and apply it first.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: factory8-viewer
+  namespace: factory8-sandboxes
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: factory8-viewer } }
+  template:
+    metadata: { labels: { app: factory8-viewer } }
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: viewer
+          image: ghcr.io/kenn-io/agentsview:0.47.0@sha256:5890415a43dfb9314a95ee3eb9f425af61ec4772b458f031b4e4dfa4def61ccc
+          ports: [{ containerPort: 8080 }]
+          env:
+            # shortcut: one step's sessions only, until the link farm (M8 D2, task 8.5) gathers every step's.
+            - { name: CLAUDE_PROJECTS_DIR, value: /sessions/pdi0bk-acceptance-1/projects }
+            - { name: AGENTSVIEW_TELEMETRY_ENABLED, value: "0" }
+            - { name: AGENTSVIEW_DISABLE_UPDATE_CHECK, value: "1" }
+            - name: AGENTSVIEW_AUTH_TOKEN
+              valueFrom: { secretKeyRef: { name: factory8-viewer, key: token } }
+          volumeMounts:
+            - { name: sessions, mountPath: /sessions, readOnly: true }
+            - { name: data, mountPath: /data }
+      volumes:
+        - name: sessions
+          persistentVolumeClaim: { claimName: factory8-sessions, readOnly: true }
+        # Its index, rebuilt from the log volume at start.
+        - { name: data, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: factory8-viewer
+  namespace: factory8-sandboxes
+spec:
+  selector: { app: factory8-viewer }
+  ports: [{ port: 8080 }]
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: factory8-viewer
+  namespace: factory8-sandboxes
+spec:
+  entryPoints: [web, websecure]
+  routes:
+    - kind: Rule
+      match: Host(`factory8-sessions.libre.pod`)
+      middlewares:
+        - { name: oauth2-errors, namespace: oauth2-proxy }
+        - { name: oauth2-forwardauth, namespace: oauth2-proxy }
+        - { name: factory8-viewer-token }
+      services: [{ name: factory8-viewer, port: 8080 }]
