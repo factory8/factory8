@@ -53,15 +53,15 @@
 
   `npm test` and `npm run typecheck` pass. The image is deployed with 8.5 (Migration Plan).
 - [ ] 8.5 The viewer (*user* + me; design D2–D4; `session-viewer` spec; after 8.1, 8.3, 8.4, split-session-logs 7.1). Done when:
-  - the picked viewer's image builds or is pinned;
-  - `deploy/viewer.yaml` (in `deploy/kustomization.yaml` since 2026-11-21, behind SSO, showing one step's sessions) gains the `farm` container, and `CLAUDE_PROJECTS_DIR` moves to the farm;
-  - *user*: `deploy/viewer-token.yaml` is made and applied (done 2026-11-21), and the manifests are applied. The worker and sandbox images with 8.3 and 8.4 ship with split-session-logs 7.1;
+  - (done 2026-11-22) the picked viewer's image builds or is pinned;
+  - (done 2026-11-22) `deploy/viewer.yaml` (in `deploy/kustomization.yaml` since 2026-11-21, behind SSO, showing one step's sessions) gains the `farm` container, and `CLAUDE_PROJECTS_DIR` moves to the farm;
+  - *user*: `deploy/viewer-token.yaml` is made and applied (done 2026-11-21), and the manifests are applied (done 2026-11-22). The worker and sandbox images with 8.3 and 8.4 ship with split-session-logs 7.1;
   - at `https://factory8-sessions.libre.pod`, from a phone on the tailnet:
-    - a browser that isn't signed in is sent to the SSO sign-in, and a call to the Service without the token gets 401;
-    - signed in, a ship run started after the deploy is listed under factory8/factory8, with its run and stage shown (design Risks: the list hid run `pdi0bk`'s sessions);
+    - (done 2026-11-22) a browser that isn't signed in is sent to the SSO sign-in, and a call to the Service without the token gets 401;
+    - signed in, a ship run started after the deploy is listed under factory8/factory8, with its run and stage shown (design Risks: the list hid run `pdi0bk`'s sessions; on 2026-11-22 it lists all seven, though agentsview files each headless session as a subagent and names the project `factory8`);
     - a step started after the deploy appears within a minute;
     - a reload of a running step's session shows its new turns within the time D1 recorded;
-  - the viewer's pod has no ServiceAccount token, and no binary named `claude`, `codex` or `pi`.
+  - (done 2026-11-22) the viewer's pod has no ServiceAccount token, and no binary named `claude`, `codex` or `pi`.
 - [x] 8.6 The inbox (design D5; `collie-inbox` spec; after 8.1, split-session-logs 7.1). Done when:
   - `inbox/` is a workspace with `src/main.ts`, and depends on `@temporalio/client` and `@colliepwa/durable-sdk` at an exact version;
   - `inbox/test/` covers:
