@@ -19,16 +19,44 @@ spec:
           image: ghcr.io/kenn-io/agentsview:0.47.0@sha256:5890415a43dfb9314a95ee3eb9f425af61ec4772b458f031b4e4dfa4def61ccc
           ports: [{ containerPort: 8080 }]
           env:
-            # shortcut: one step's sessions only, until the link farm (M8 D2, task 8.5) gathers every step's.
-            - { name: CLAUDE_PROJECTS_DIR, value: /sessions/pdi0bk-acceptance-1/projects }
+            - { name: CLAUDE_PROJECTS_DIR, value: /farm/.claude/projects }
             - { name: AGENTSVIEW_TELEMETRY_ENABLED, value: "0" }
             - { name: AGENTSVIEW_DISABLE_UPDATE_CHECK, value: "1" }
             - name: AGENTSVIEW_AUTH_TOKEN
               valueFrom: { secretKeyRef: { name: factory8-viewer, key: token } }
           volumeMounts:
             - { name: sessions, mountPath: /sessions, readOnly: true }
+            - { name: farm, mountPath: /farm, readOnly: true }
             - { name: data, mountPath: /data }
+        # The link farm (M8 D2, D3): every 30 s, a link per step's project directory, named after its folder
+        # `<runId>-<stage>`, then a sync, since agentsview's watcher misses writes from the sandboxes' NFS clients.
+        # shortcut: each sync stats every kept session file over NFS; call it less often when kept runs reach the thousands.
+        - name: farm
+          image: busybox:1.37.0@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
+          env:
+            - name: TOKEN
+              valueFrom: { secretKeyRef: { name: factory8-viewer, key: token } }
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p /farm/.claude/projects
+              while :; do
+                for d in /sessions/*/projects/*/; do
+                  [ -d "$d" ] || continue
+                  step=${d#/sessions/}; step=${step%%/*}
+                  [ -L "/farm/.claude/projects/$step" ] || ln -s "$d" "/farm/.claude/projects/$step"
+                done
+                for l in /farm/.claude/projects/*; do [ -e "$l" ] || rm -f "$l"; done # a step folder deleted by hand
+                wget -q -O /dev/null --header "Authorization: Bearer $TOKEN" --post-data '' http://127.0.0.1:8080/api/v1/sync || true
+                sleep 30
+              done
+          volumeMounts:
+            - { name: sessions, mountPath: /sessions, readOnly: true }
+            - { name: farm, mountPath: /farm }
       volumes:
+        # Links to each step's project directory on the log volume, outside it, so agentsview watches one directory.
+        - { name: farm, emptyDir: {} }
         - name: sessions
           persistentVolumeClaim: { claimName: factory8-sessions, readOnly: true }
         # Its index, rebuilt from the log volume at start.

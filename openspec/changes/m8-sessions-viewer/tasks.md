@@ -7,7 +7,7 @@
 
 ## 8. M8: read agent sessions, and answer runs from the phone
 
-- [ ] 8.0 Docs (design D7; after none). Done when:
+- [x] 8.0 Docs (design D7; after none). Done when:
   - (done 2026-11-05) the PRD has PLT-9, PLT-10, the §4, PLT-5, AGT-11, PRJ-1, §8 and §12 edits, and a §0 row, all approved by the user;
   - (done 2026-11-05) `docs/site/prd.html` and `architecture.html` match the PRD, and `arch.d2` shows the viewer and the inbox, re-rendered to `arch.svg`;
   - `docs/plans/poc.md` has the M8 row (after M6). Under "Not in the POC" it lists:
@@ -26,7 +26,7 @@
   - that the copy is unchanged afterwards (`find <copy> -newer <stamp>` prints nothing).
 
   D1 then names the pick by its rule, and D4 and D5 keep only that viewer's variant.
-- [ ] 8.2 Collie spike (*user* + me; design D5; after none). The SDK's example, as a `text` ask seeded with `seedAsk`, served through `wireListener` behind the bearer check, at a temporary IngressRoute on `factory8-inbox.libre.pod`. Done when D5 records:
+- [ ] 8.2 Collie spike (*user* + me; design D5; after 8.6, which the user moved ahead of it on 2026-11-22, since the spike's program was most of the inbox). The inbox's image, its `text` asks seeded with `seedAsk` and served through `wireListener` behind the bearer check, at a temporary IngressRoute on `factory8-inbox.libre.pod`. Done when D5 records:
   - whether the user's Collie attaches it with `collie durable attach --url` and trusts the host's certificate, or which fallback we use;
   - that the ask reaches the phone as one push, and the typed reply reaches the sink;
   - that `decideAsk` closes the ask on the phone, and a tap after that shows it as too late;
@@ -62,7 +62,7 @@
     - a step started after the deploy appears within a minute;
     - a reload of a running step's session shows its new turns within the time D1 recorded;
   - the viewer's pod has no ServiceAccount token, and no binary named `claude`, `codex` or `pi`.
-- [ ] 8.6 The inbox (design D5; `collie-inbox` spec; after 8.1, 8.2, split-session-logs 7.1). Done when:
+- [x] 8.6 The inbox (design D5; `collie-inbox` spec; after 8.1, split-session-logs 7.1). Done when:
   - `inbox/` is a workspace with `src/main.ts`, and depends on `@temporalio/client` and `@colliepwa/durable-sdk` at an exact version;
   - `inbox/test/` covers:
     - `waiting()` returns an ask only for runs whose `state` has a question, and skips runs without a `state` or with no question;

@@ -18,6 +18,8 @@ Factory8 is a self-hosted AI-native software factory. Temporal workflows, writte
 - `nix build .#sandbox-image`: the sandbox image (M1 design D3). The result is a script that streams the image; pipe it to `docker load` or `k3s ctr images import -`.
 - `nix build .#worker-image -o result-worker`: the shared worker's image (M1 design D4), streamed the same way: the flake's `lib.workerImage` with the built-in flows only, bundled at build and pinned to the commit it's built from (a dirty tree fails). After importing either image, put its new tag in `deploy/worker.yaml`.
 - `nix build .#project-worker-image` (M7): this repo's own project worker image, made by the flake's `lib.workerImage` from `.factory8/workflows/` and the built-in flows, bundled at build and pinned to the commit it's built from (a dirty tree fails). Its tag goes in `deploy/projects/factory8.yaml`.
+- `nix build .#inbox-image -o result-inbox` (M8): the Collie inbox's image, from the same app as the worker's, streamed the same way.
+- The session viewer (M8) needs no build: `deploy/viewer.yaml` runs agentsview's published image, pinned by digest, at `https://factory8-sessions.libre.pod` behind the cluster's SSO. Its token is in `deploy/viewer-token.yaml`, which git ignores; `viewer.yaml`'s header says how to make it.
 
 ## Layout
 
@@ -25,8 +27,10 @@ Factory8 is a self-hosted AI-native software factory. Temporal workflows, writte
 - `openspec/`: specs and changes (see "Read first").
 - `adapter/`: `f8-adapter`, the daemon inside each sandbox that runs the agent CLI (`agent-adapter` spec), and `f8-ask`.
 - `worker/`: the Temporal worker and its workflows: the M1/M5 SDLC run (`run-workflow` spec) and the M6 ship run (`ship-workflow` spec); it manages sandboxes and talks to the adapter, nothing else.
+- `inbox/` (M8): the Collie inbox (`collie-inbox` spec), a Temporal client and nothing else. Each run waiting on a question shows in Collie as a text ask with a link to the step's session in the viewer, and a reply there is the run's `answer` signal. `f8 answer` works without it.
 - `plugin/`: the `factory8` Claude Code plugin, one skill per ship stage (`factory8-plugin` spec). Stage prompts change here, not in worker code. From M7 a run loads the plugin at its worker image's commit, so a skill change reaches runs with the next worker image. Try one locally with `claude --plugin-dir plugin`.
 - `.factory8/workflows/` (M7): this repo's own flows, TypeScript workflows built into its project worker image.
+- `.factory8/project.yaml` (M8): `workdir: <owner>/<repo>` pins where each sandbox checks the repo out, `/f8/<owner>/<repo>`; without it, the name comes from the repo URL's last two path segments. Claude Code files each step's session under that path, so the viewer groups sessions by repo.
 - `cli/`: `f8`, the engineer's terminal (`f8-cli` spec). `f8 run <issue>` in a clone starts a run and prints the agent's summary; `f8 run --flow ship <issue>` starts a ship run and prints its stages, and `f8 answer <run> "<text>"` answers its question. From M7, `f8 run --flow <name> <issue>` starts any flow, built-in or the project's own, on the repo's task queue `factory8/<owner>/<repo>`. It reaches Temporal at `TEMPORAL_ADDRESS`: through Tailscale, `temporal-frontend.factory8.svc.cluster.local:7233`; otherwise the default `localhost:7233` and `kubectl -n factory8 port-forward svc/temporal-frontend 7233`. From any clone: `nix run <this repo>#f8 -- run 12`.
 
 ## When the PRD changes

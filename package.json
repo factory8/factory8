@@ -5,7 +5,8 @@
   "workspaces": [
     "adapter",
     "worker",
-    "cli"
+    "cli",
+    "inbox"
   ],
   "scripts": {
     "test": "npm test --workspaces && node --test '.factory8/workflows/test/*.test.ts'",

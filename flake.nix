@@ -11,11 +11,11 @@
         config.allowUnfreePredicate = p: lib.getName p == "claude-code";
       };
       forAll = f: lib.genAttrs [ "x86_64-linux" "aarch64-linux" ] (system: f (pkgsFor system));
-      # Node, the workspaces and their production dependencies, shared by the worker's image and f8.
+      # Node, the workspaces and their production dependencies, shared by the worker's and the inbox's images and f8.
       appFor = pkgs: let
         src = lib.fileset.toSource {
           root = ./.;
-          fileset = lib.fileset.unions [ ./package.json ./package-lock.json ./adapter ./worker ./cli ];
+          fileset = lib.fileset.unions [ ./package.json ./package-lock.json ./adapter ./worker ./cli ./inbox ];
         };
       in pkgs.buildNpmPackage {
         pname = "factory8";
@@ -26,7 +26,7 @@
         npmConfigHook = pkgs.importNpmLock.npmConfigHook;
         npmFlags = [ "--omit=dev" ];
         dontNpmBuild = true;
-        installPhase = "mkdir $out && cp -r node_modules adapter worker cli $out/";
+        installPhase = "mkdir $out && cp -r node_modules adapter worker cli inbox $out/";
       };
     in {
       # A project's sandbox image (M1 design D3): its dev shell's packages, stdenv's base tools as `nix develop`
@@ -91,6 +91,12 @@
           inherit pkgs;
           name = "factory8-worker-factory8-factory8";
           workflows = ./.factory8/workflows;
+        };
+
+        # The Collie inbox (M8 design D5): a Temporal client, run from the same app as the worker.
+        inbox-image = pkgs.dockerTools.streamLayeredImage {
+          name = "factory8-inbox";
+          config.Entrypoint = [ "${pkgs.nodejs_24}/bin/node" "${app}/inbox/src/main.ts" ];
         };
 
         # f8 on the laptop (M1 design D5): nix run <this repo>#f8 -- run 12
