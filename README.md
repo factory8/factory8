@@ -42,3 +42,7 @@ A small change takes about a minute.
 - **Clean up by hand:** if you close the PR, delete its branch too. The run's PVCs `factory8-<id>-<step>` stay on the share until you delete them (`kubectl -n factory8-sandboxes delete pvc -l factory8/run=<id>`).
 
 **Not there yet:** follow-ups on the same run (feedback), cancelling a run, live progress (`f8 watch`), Docker inside the sandbox, and images for repos other than factory8/factory8.
+
+## License
+
+MIT, see [LICENSE](LICENSE).
