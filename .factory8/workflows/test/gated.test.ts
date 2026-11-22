@@ -23,6 +23,7 @@ async function gated(answer: string) {
     pollStep: async (_ip: string, stepId: string) =>
       ({ seq: 1, at: '', stepId, type: 'exit', status: 'done', summary: `${stepId.split('.')[1]} done` }),
     deleteSandbox: async (_run: string, stage: string) => { calls.push(`delete ${stage}`); },
+    deleteWorkspace: async (_run: string, stage: string) => { calls.push(`delete-pvc ${stage}`); },
   };
   const q = `gated-${++n}`; // a queue per run, so a leftover workflow never reaches another test's mocks
   const worker = await Worker.create({ connection: env.nativeConnection, taskQueue: q, activities,
@@ -41,9 +42,9 @@ async function gated(answer: string) {
 test('go, in any case and with spaces, builds and returns the build\'s summary; no sandbox while it waits', async () => {
   const r = await gated(' Go ');
   assert.equal(r.question, 'plan done\n\nReply `go` to build, anything else to stop.');
-  assert.deepEqual(r.waiting, ['create plan', 'start plan author', 'delete plan']);
+  assert.deepEqual(r.waiting, ['create plan', 'start plan author', 'delete plan', 'delete-pvc plan']);
   assert.deepEqual(r.result, { summary: 'build done' });
-  assert.deepEqual(r.calls.slice(3), ['create build', 'start build author', 'delete build']);
+  assert.deepEqual(r.calls.slice(4), ['create build', 'start build author', 'delete build', 'delete-pvc build']);
 });
 
 test('anything else fails the run with rejected and the answer, and builds nothing', async () => {
@@ -51,5 +52,5 @@ test('anything else fails the run with rejected and the answer, and builds nothi
   assert.ok(r.result instanceof WorkflowFailedError, String(r.result));
   const cause = r.result.cause as Error & { type?: string };
   assert.deepEqual([cause.type, cause.message], ['rejected', 'not yet']);
-  assert.deepEqual(r.calls, ['create plan', 'start plan author', 'delete plan']);
+  assert.deepEqual(r.calls, ['create plan', 'start plan author', 'delete plan', 'delete-pvc plan']);
 });

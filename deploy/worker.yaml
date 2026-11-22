@@ -18,7 +18,7 @@ rules:
     verbs: [create, get, delete]
   - apiGroups: [""]
     resources: [persistentvolumeclaims]
-    verbs: [create, get]
+    verbs: [create, get, delete]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -50,7 +50,7 @@ spec:
       serviceAccountName: factory8-worker
       containers:
         - name: worker
-          image: factory8-worker:w6bv0pmnwjxy42bdx747zmm7mxp2hnqd
+          image: factory8-worker:1ywcwk1n2j1xbylcl2i1z9ba9wdn2if7
           imagePullPolicy: Never
           env:
             - name: TEMPORAL_ADDRESS

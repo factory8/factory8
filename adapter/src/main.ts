@@ -2,28 +2,36 @@
 // f8-adapter: runs one agent step at a time inside the sandbox (openspec/specs/agent-adapter/spec.md).
 import { createServer } from 'node:http';
 import { execFile, spawn, type ChildProcess } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { createInterface } from 'node:readline';
 import { promisify } from 'node:util';
 import type { EventBody, StepEvent, StepRequest } from './types.ts';
+import { ROOT, workdir } from './workdir.ts';
 
 interface AnswerRequest { answer: string }
 
-const ROOT = process.env.FACTORY8_ROOT ?? '/f8';
-const WORK = `${ROOT}/work`, HOME = `${ROOT}/home`, STATE = `${ROOT}/state`, PLUGIN = `${ROOT}/plugin`;
+const HOME = `${ROOT}/home`, PLUGIN = `${ROOT}/plugin`, CLONE = `${ROOT}/.clone`;
+// The step's folder of the session-log volume, /f8-logs (split-session-logs D2).
+const LOGS = `${ROOT}-logs`, STATE = `${LOGS}/state`;
 const exec = promisify(execFile);
-const git = (...args: string[]) => exec('git', ['-C', WORK, ...args]);
+const git = (...args: string[]) => exec('git', ['-C', work!, ...args]);
 // shortcut: the token comes from the pod's Secret (sandbox spec), remove with #1.
 const cred = '!f() { echo username=x-access-token; echo "password=$GH_TOKEN"; }; f';
 const clone = (url: string, dir: string, ...cfg: string[]) =>
   exec('git', ['clone', '-c', `credential.helper=${cred}`, ...cfg, url, dir]);
 
 mkdirSync(STATE, { recursive: true });
-mkdirSync(HOME, { recursive: true });
+mkdirSync(`${LOGS}/projects`, { recursive: true });
+mkdirSync(`${HOME}/.claude`, { recursive: true });
+// Claude Code writes its sessions through the link, straight onto the log volume; the link is on the PVC, so a restart keeps it.
+if (!existsSync(`${HOME}/.claude/projects`)) symlinkSync(`${LOGS}/projects`, `${HOME}/.claude/projects`);
 const read = (f: string) => existsSync(`${STATE}/${f}`) ? readFileSync(`${STATE}/${f}`, 'utf8') : undefined;
-// State survives a pod restart on the same PVC (resume after suspend, retry after sandbox death).
+// State survives a pod restart: the step's next pod mounts the same log folder (resume after suspend, retry after sandbox death).
 let req: StepRequest | undefined = read('request.json') && JSON.parse(read('request.json')!);
 const events: StepEvent[] = (read('events.jsonl') ?? '').split('\n').filter(Boolean).map(l => JSON.parse(l));
+// The step's checkout, /f8/<owner>/<repo>, kept so a resumed session runs in the cwd it started in.
+let work = read('checkout');
 let child: ChildProcess | undefined;
 let cancelled = false;
 let wake: (() => void)[] = [];
@@ -35,21 +43,28 @@ function emit(stepId: string, body: EventBody) {
   wake.splice(0).forEach(f => f());
 }
 
-const preamble = (r: StepRequest) => `You are working in \`${WORK}\` on branch \`${r.repo.branch}\`. Commit and push your work before you finish.
+const preamble = (r: StepRequest) => `You are working in \`${work}\` on branch \`${r.repo.branch}\`. Commit and push your work before you finish.
 If you need a decision only a human can make, run \`f8-ask "<question>"\` and stop; don't guess.
 Finish with a short summary of what you did.`;
 
 async function checkout(r: StepRequest) {
-  if (!existsSync(`${WORK}/.git`)) {
-    await clone(r.repo.url, WORK, '-c', 'user.name=Factory8', '-c', 'user.email=factory8@users.noreply.github.com');
+  if (!work || !existsSync(`${work}/.git`)) {
+    // Cloned aside first: the name can come from the default branch's .factory8/project.yaml (M8 D8).
+    rmSync(CLONE, { recursive: true, force: true }); // left by a restart mid-clone
+    await clone(r.repo.url, CLONE, '-c', 'user.name=Factory8', '-c', 'user.email=factory8@users.noreply.github.com');
+    const yaml = `${CLONE}/.factory8/project.yaml`;
+    work = workdir(r.repo.url, existsSync(yaml) ? readFileSync(yaml, 'utf8') : undefined);
+    writeFileSync(`${STATE}/checkout`, work); // before the rename: a restart in between finds no .git there and clones again
+    mkdirSync(dirname(work), { recursive: true });
+    renameSync(CLONE, work);
   }
   await git('fetch', 'origin');
   await git('switch', r.repo.branch).catch(() => git('switch', '-c', r.repo.branch));
-  writeFileSync(`${WORK}/.git/hooks/commit-msg`,
+  writeFileSync(`${work}/.git/hooks/commit-msg`,
     `#!/bin/sh\ngit interpret-trailers --in-place --if-exists doNothing --trailer 'Factory8-Run: ${r.runId}' "$1"\n`, { mode: 0o755 });
-  if (existsSync(`${WORK}/AGENTS.md`) && !existsSync(`${WORK}/CLAUDE.md`)) {
-    writeFileSync(`${WORK}/CLAUDE.md`, '@AGENTS.md\n');
-    appendFileSync(`${WORK}/.git/info/exclude`, '/CLAUDE.md\n');
+  if (existsSync(`${work}/AGENTS.md`) && !existsSync(`${work}/CLAUDE.md`)) {
+    writeFileSync(`${work}/CLAUDE.md`, '@AGENTS.md\n');
+    appendFileSync(`${work}/.git/info/exclude`, '/CLAUDE.md\n');
   }
   if (r.plugin) {
     // On the PVC, so a resumed step reuses it. Pinned to the worker image's commit (M7 D9).
@@ -72,7 +87,7 @@ function run(r: StepRequest, args: string[], prompt: string, fallback?: () => vo
     '--model', r.profile.model, ...(r.profile.effort ? ['--effort', r.profile.effort] : []),
     // A resumed session keeps the system prompt it started with, so the flag there is a no-op (M6 D5 spike).
     '--append-system-prompt', preamble(r), ...(r.plugin ? ['--plugin-dir', `${PLUGIN}/plugin`] : []), ...args], {
-    cwd: WORK,
+    cwd: work,
     env: { ...process.env, HOME, IS_SANDBOX: '1' }, // IS_SANDBOX lets --dangerously-skip-permissions run as root
     detached: true, // its own process group, so a cancel reaches the commands it starts
   });

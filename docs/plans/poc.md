@@ -1,4 +1,4 @@
-# POC plan (Phase 0, M1–M7)
+# POC plan (Phase 0, M1–M8)
 
 **Status:** agreed 2026-10-22 · from PRD v0.6 §8 · tasks tracked in OpenSpec since 2026-10-23
 
@@ -25,6 +25,7 @@
 | M5: the SDLC run (plan, build, review/fix, ready PR) | `m5-sdlc-workflow` | 1.8 |
 | M6: the ship run (design, tests first, graded reviews, ladder, human waits) | `m6-ship-workflow` | M5 |
 | M7: a task queue per project, and workflows a project owns | `m7-project-workflows` | M6 |
+| M8: read agent sessions, and answer runs from the phone | `m8-sessions-viewer` | M6 |
 | M2: live progress and session logs | `m2-progress-and-logs` | M6 |
 | M3: questions with suspend/resume | `m3-questions-suspend-resume` | M6; its spike 3.1 only needs 1.4, so run it early |
 | M4: recovery | `m4-recovery` | M6, 2.2; its cleanup task 4.4 also needs 3.2 |
@@ -40,6 +41,10 @@
 - Scan project images (SBX-9).
 - Resource limits per step (SBX-7).
 - [#5](https://github.com/factory8/factory8/issues/5): authorization in Temporal. The web UI at `temporal.libre.pod` logs in through Casdoor (`deploy/web.yaml`), but the server has no `Authorizer`, so everyone who can log in can do anything, and the frontend's gRPC port, which `f8` reaches through a port-forward or the tailnet, takes no credentials. Fix: the server's JWT `ClaimMapper` and `Authorizer` with Casdoor's keys, and tokens for the worker and `f8`.
+- The session viewer (PLT-9) is behind the cluster's SSO, which lets in any of its users with no role check, and the Collie inbox (PLT-10) is gated by one shared token. Fix: Factory8's own SSO and roles (PLT-7).
+- Transcripts can hold secrets, such as a `GH_TOKEN` printed by a tool, and anyone who signs in to the viewer reads them. Fix: #1 takes the secrets out of sandboxes; roles (PLT-7) limit who reads.
+- Anyone who signs in to the viewer can run commands in its pod: agentsview's custom terminal setting is a command its Resume button runs (M8 design D1). The pod has the log volume read-only and no ServiceAccount token, but it reaches the cluster network, Temporal included. Fix: a NetworkPolicy that denies the pod's egress.
+- The viewer's token is in plain text in a Traefik Middleware (`deploy/viewer-token.yaml`, M8 design D4), so whoever can read Middlewares in `factory8-sandboxes` can call the viewer directly. Fix: roles on the namespace's resources, or a forward-auth service that reads the token from a Secret.
 - A project worker (ORC-14) runs with the shared worker's ServiceAccount, and `deleteSandbox` takes any run ID, so a project's workflow code can delete another project's sandbox. Fix: a ServiceAccount and Role per project worker, and sandbox pods labelled and checked by project.
 
 **Later:**

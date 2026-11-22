@@ -28,6 +28,7 @@ async function sdlc(exits: Record<string, { status: string; summary?: string; re
       return { seq: 3, at: '', stepId, type: 'exit', ...e };
     },
     deleteSandbox: async (...a: unknown[]) => { calls.push(['delete', ...a]); },
+    deleteWorkspace: async (...a: unknown[]) => { calls.push(['delete-pvc', ...a]); },
   };
   const worker = await Worker.create({
     connection: env.nativeConnection, taskQueue: 'test', activities,
@@ -44,7 +45,7 @@ async function sdlc(exits: Record<string, { status: string; summary?: string; re
 const seq = (calls: unknown[][]) => calls.map(c => {
   if (c[0] === 'start') return [c[0], (c[1] as StepRequest).stepId.split('.')[1], c[2]].join(' ');
   if (c[0] === 'poll') return [c[0], String(c[1]).split('.')[1]].join(' ');
-  return [c[0], c[2]].join(' '); // create: [op, runId, stage, repo]; delete: [op, runId, stage]
+  return [c[0], c[2]].join(' '); // create: [op, runId, stage, repo]; delete, delete-pvc: [op, runId, stage]
 });
 
 test('ready on the first review: plan, build, review-1, each in its own sandbox', async () => {
@@ -52,9 +53,9 @@ test('ready on the first review: plan, build, review-1, each in its own sandbox'
   const { result, calls } = await sdlc({ 'review-1': { status: 'done', summary } });
   assert.equal((result as Exit & { summary: string }).summary, summary);
   assert.deepEqual(seq(calls), [
-    'create plan', 'start plan author', 'poll plan', 'delete plan',
-    'create build', 'start build author', 'poll build', 'delete build',
-    'create review-1', 'start review-1 reviewer', 'poll review-1', 'delete review-1',
+    'create plan', 'start plan author', 'poll plan', 'delete plan', 'delete-pvc plan',
+    'create build', 'start build author', 'poll build', 'delete build', 'delete-pvc build',
+    'create review-1', 'start review-1 reviewer', 'poll review-1', 'delete review-1', 'delete-pvc review-1',
   ]);
   assert.deepEqual(calls.filter(c => c[0] === 'create').map(c => c[3]), Array(3).fill('https://github.com/o/r'));
   assert.deepEqual(calls.filter(c => c[0] === 'start').map(c => (c[1] as StepRequest).repo.branch),
@@ -82,14 +83,14 @@ test('fix rounds exhausted: changes_requested after fix-2 and review-3', async (
   assert.deepEqual(seq(calls).filter(s => s.startsWith('create')), [
     'create plan', 'create build', 'create review-1', 'create fix-1', 'create review-2', 'create fix-2', 'create review-3',
   ]);
-  assert.equal(seq(calls).at(-1), 'delete review-3');
+  assert.equal(seq(calls).at(-1), 'delete-pvc review-3');
 });
 
 test('a failed build deletes its sandbox and no review starts', async () => {
   const { result, calls } = await sdlc({ build: { status: 'failed', reason: 'claude exited 1' } });
   assert.ok(result instanceof Error);
   assert.equal((result.cause as Error).message, 'claude exited 1');
-  assert.equal(seq(calls).at(-1), 'delete build');
+  assert.deepEqual(seq(calls).slice(-2), ['delete build', 'delete-pvc build']);
   assert.ok(!seq(calls).some(s => s.includes('review')));
 });
 
@@ -103,5 +104,5 @@ test('a review summary with no verdict fails the run with no_verdict', async () 
   const { result, calls } = await sdlc({ 'review-1': { status: 'done', summary: 'Looks fine overall.' } });
   assert.ok(result instanceof Error);
   assert.equal((result as { cause?: { type?: string } }).cause?.type, 'no_verdict');
-  assert.equal(seq(calls).at(-1), 'delete review-1');
+  assert.equal(seq(calls).at(-1), 'delete-pvc review-1');
 });

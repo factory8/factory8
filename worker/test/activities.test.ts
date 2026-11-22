@@ -1,13 +1,25 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { answerStep, sandboxPod, shipConfig, startStep } from '../src/activities.ts';
+import { answerStep, sandboxPod, shipConfig, startStep, workspacePvc } from '../src/activities.ts';
 
 test('sandboxPod names the pod and its PVC claim per step, with the factory8/step label', () => {
   const pod = sandboxPod('k3x9qa', 'review-3', 'factory8-image-tag');
   assert.equal(pod.metadata?.name, 'factory8-k3x9qa-review-3');
   assert.deepEqual(pod.metadata?.labels, { app: 'factory8-sandbox', 'factory8/run': 'k3x9qa', 'factory8/step': 'review-3' });
   assert.equal(pod.spec?.volumes?.[0]?.persistentVolumeClaim?.claimName, 'factory8-k3x9qa-review-3');
+});
+
+test('sandboxPod mounts only the step\'s own folder of the session-log volume at /f8-logs', () => {
+  const pod = sandboxPod('k3x9qa', 'review-3', 'factory8-image-tag');
+  assert.deepEqual(pod.spec?.containers[0].volumeMounts?.[1], { name: 'sessions', mountPath: '/f8-logs', subPath: 'k3x9qa-review-3' });
+  assert.deepEqual(pod.spec?.volumes?.[1], { name: 'sessions', persistentVolumeClaim: { claimName: 'factory8-sessions' } });
+});
+
+test('workspacePvc is the step\'s PVC, of the class factory8-workspace', () => {
+  const pvc = workspacePvc('k3x9qa', 'review-3');
+  assert.equal(pvc.metadata?.name, 'factory8-k3x9qa-review-3');
+  assert.equal(pvc.spec?.storageClassName, 'factory8-workspace');
 });
 
 test('startStep sends FACTORY8_REVIEW_MODEL for the reviewer and FACTORY8_MODEL otherwise', async () => {

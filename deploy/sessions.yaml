@@ -1,0 +1,23 @@
+# Steps' workspaces (split-session-logs D4): the worker asks for this class by name, and each installation defines it on
+# its own storage. Deleting a step's PVC frees its folder, unlike nfs-client's Retain; its logs are on factory8-sessions.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: factory8-workspace
+provisioner: k8s-sigs.io/nfs-subdir-external-provisioner
+reclaimPolicy: Delete
+# No pathPattern: the provisioner's v4.0.2 deletes only a folder at the export's root, so a nested one would stay.
+parameters:
+  onDelete: delete
+---
+# Every step's session logs, a folder <runId>-<stage> per step that only its sandbox mounts (split-session-logs D1).
+# nfs-client keeps the folder if this PVC is deleted by mistake.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: factory8-sessions
+  namespace: factory8-sandboxes
+spec:
+  storageClassName: nfs-client
+  accessModes: [ReadWriteMany]
+  resources: { requests: { storage: 20Gi } }

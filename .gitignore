@@ -6,3 +6,5 @@ result-*
 # third-party source documents, kept locally only
 AI_Native_SDLC_Playbook_*
 docs/SDLC_Playbook_Essentials.md
+# the session viewer's token (deploy/viewer.yaml)
+deploy/viewer-token.yaml

@@ -6,7 +6,7 @@ After M1, a run says nothing until it ends. M2 shows a run's progress while it w
 
 ## What Changes
 
-- Session logs already stay on the run's PVC from M1 (AGT-11; M1 design D1). M2 checks that a finished run's session restores from them.
+- Session logs are kept on the session-log volume, a folder per step, after the step's PVC is deleted (AGT-11; split-session-logs). M2 checks that a finished step's session restores from them.
 - The poll activity heartbeats Temporal with the step's latest progress. The heartbeat timeout is `progressTimeout`, a workflow setting that defaults to 10 min (ORC-13).
 - `f8 runs` lists runs with their stage and latest progress, and `f8 watch <run>` follows one live. Both support `--json` (PLT-5).
 - One status comment on the PR is edited as the run progresses (ORC-13).

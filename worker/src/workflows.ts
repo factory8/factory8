@@ -5,7 +5,7 @@ import { plan, build, review, fix } from './prompts.ts';
 export interface RunInput { runId: string; repo: string; issue: number }
 
 // One attempt each: retries come in M4, heartbeats in M2.
-const { createSandbox, startStep, deleteSandbox } = proxyActivities<typeof activities>({
+const { createSandbox, startStep, deleteSandbox, deleteWorkspace } = proxyActivities<typeof activities>({
   startToCloseTimeout: '5m', retry: { maximumAttempts: 1 },
 });
 const { pollStep } = proxyActivities<typeof activities>({ startToCloseTimeout: '2h', retry: { maximumAttempts: 1 } });
@@ -24,6 +24,7 @@ async function step(repo: string, runId: string, stage: string, prompt: string, 
     throw ApplicationFailure.nonRetryable(exit.status === 'failed' ? exit.reason : exit.question, exit.status);
   } finally {
     await deleteSandbox(runId, stage);
+    await deleteWorkspace(runId, stage);
   }
 }
 

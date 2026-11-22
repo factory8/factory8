@@ -8,7 +8,7 @@ import type { RunInput } from './workflows.ts';
 export type { RunInput };
 
 // One attempt each, as in sdlcWorkflow: retries come in M4.
-const { createSandbox, startStep, answerStep, deleteSandbox } = proxyActivities<typeof activities>({
+const { createSandbox, startStep, answerStep, deleteSandbox, deleteWorkspace } = proxyActivities<typeof activities>({
   startToCloseTimeout: '5m', retry: { maximumAttempts: 1 },
 });
 const { pollStep } = proxyActivities<typeof activities>({ startToCloseTimeout: '2h', retry: { maximumAttempts: 1 } });
@@ -34,7 +34,8 @@ export function run<X extends object = object>({ runId, repo }: RunInput, more =
   const answers: string[] = [];
   const used = new Set<string>();
   setHandler(state, () => st);
-  setHandler(answer, a => { answers.push(a); });
+  // One answer per question (M8 D6): one sent with no question waiting, or after another, would answer the next question.
+  setHandler(answer, a => { if (st.question !== undefined && answers.length === 0) answers.push(a); });
 
   // The run's wait for a human: no sandbox exists while it lasts (ORC-5, M6 D10).
   async function ask(question: string) {
@@ -47,7 +48,7 @@ export function run<X extends object = object>({ runId, repo }: RunInput, more =
   }
 
   // One step in its own sandbox: create, start, poll, delete in `finally`; a question waits without a pod (M6 D1, D10).
-  // shortcut: run steps one at a time; a run that fails while another step runs leaves that step's pod. Upgrade to a cancellation scope when a flow needs parallel steps.
+  // shortcut: run steps one at a time; a run that fails while another step runs leaves that step's pod and PVC. Upgrade to a cancellation scope when a flow needs parallel steps.
   async function step<T = string>(stage: string, prompt: string, opts: StepOptions<T> = {}): Promise<T> {
     if (!DNS_LABEL.test(stage) || used.has(stage))
       throw ApplicationFailure.nonRetryable(`stage ${JSON.stringify(stage)} must be a DNS label not used before in the run`, 'bad_stage');
@@ -73,6 +74,7 @@ export function run<X extends object = object>({ runId, repo }: RunInput, more =
       }
     } finally {
       await deleteSandbox(runId, stage);
+      await deleteWorkspace(runId, stage); // the session stays on the log volume
     }
   }
 
