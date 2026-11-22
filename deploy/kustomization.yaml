@@ -7,4 +7,3 @@ resources:
   - worker.yaml
   - projects/factory8.yaml
   - web.yaml
-  - viewer.yaml

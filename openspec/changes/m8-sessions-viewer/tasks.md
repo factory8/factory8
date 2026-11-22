@@ -52,7 +52,7 @@
   - `nix build .#sandbox-image` passes.
 
   `npm test` and `npm run typecheck` pass. The image is deployed with 8.5 (Migration Plan).
-- [ ] 8.5 The viewer (*user* + me; design D2–D4; `session-viewer` spec; after 8.1, 8.3, 8.4, split-session-logs 7.1). Done when:
+- [ ] 8.5 The viewer (*user* + me; design D2–D4; `session-viewer` spec; after 8.1, 8.3, 8.4, split-session-logs 7.1). On 2026-11-22 the user dropped agentsview, since its list hid sessions: `deploy/viewer.yaml` is gone and the viewer is off the cluster, so D1 needs a new pick before this task. Done when:
   - the picked viewer's image builds or is pinned;
   - `deploy/viewer.yaml` (in `deploy/kustomization.yaml` since 2026-11-21, behind SSO, showing one step's sessions) gains the `farm` container, and `CLAUDE_PROJECTS_DIR` moves to the farm;
   - *user*: `deploy/viewer-token.yaml` is made and applied (done 2026-11-21), and the manifests are applied. The worker and sandbox images with 8.3 and 8.4 ship with split-session-logs 7.1;
