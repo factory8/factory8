@@ -19,6 +19,7 @@ Factory8 is a self-hosted AI-native software factory. Temporal workflows, writte
 - `nix build .#worker-image -o result-worker`: the shared worker's image (M1 design D4), streamed the same way: the flake's `lib.workerImage` with the built-in flows only, bundled at build and pinned to the commit it's built from (a dirty tree fails). After importing either image, put its new tag in `deploy/worker.yaml`.
 - `nix build .#project-worker-image` (M7): this repo's own project worker image, made by the flake's `lib.workerImage` from `.factory8/workflows/` and the built-in flows, bundled at build and pinned to the commit it's built from (a dirty tree fails). Its tag goes in `deploy/projects/factory8.yaml`.
 - `nix build .#inbox-image -o result-inbox` (M8): the Collie inbox's image, from the same app as the worker's, streamed the same way.
+- The session viewer (M8) needs no build: `deploy/viewer.yaml` runs agentsview's published image, pinned by digest, at `https://factory8-sessions.libre.pod` behind the cluster's SSO. Its token is in `deploy/viewer-token.yaml`, which git ignores; `viewer.yaml`'s header says how to make it.
 
 ## Layout
 
