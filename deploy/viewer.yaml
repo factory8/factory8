@@ -14,6 +14,12 @@ spec:
     metadata: { labels: { app: factory8-viewer } }
     spec:
       automountServiceAccountToken: false
+      # agentsview drops a projects folder missing at its start and never looks again, so it exists before.
+      initContainers:
+        - name: farm-dir
+          image: busybox:1.37.0@sha256:a7dbc319b1438115a207e11930dc4bb3e643dcb3ec0bdd694bb36cd8fad289ec
+          command: [mkdir, -p, /farm/.claude/projects]
+          volumeMounts: [{ name: farm, mountPath: /farm }]
       containers:
         - name: viewer
           image: ghcr.io/kenn-io/agentsview:0.47.0@sha256:5890415a43dfb9314a95ee3eb9f425af61ec4772b458f031b4e4dfa4def61ccc
@@ -40,7 +46,6 @@ spec:
             - sh
             - -c
             - |
-              mkdir -p /farm/.claude/projects
               while :; do
                 for d in /sessions/*/projects/*/; do
                   [ -d "$d" ] || continue
