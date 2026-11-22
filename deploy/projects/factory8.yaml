@@ -16,7 +16,7 @@ spec:
       serviceAccountName: factory8-worker
       containers:
         - name: worker
-          image: factory8-worker-factory8-factory8:nxjl0x06j9idcz9m50nfiamidk5aixyc
+          image: factory8-worker-factory8-factory8:b7ylr4vi8rwv9dlpdpncp5zjssg2s78g
           imagePullPolicy: Never
           env:
             - name: TEMPORAL_ADDRESS
